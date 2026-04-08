@@ -10,6 +10,7 @@
   "colors": {
     "primary": "#14bc84"
   },
+  "openapi": ["openapi.yml"],
   "feedback": {
     "thumbsRating": true
   },
