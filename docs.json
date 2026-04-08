@@ -13,6 +13,11 @@
   "openapi": [
     "openapi.yml"
   ],
+  "api": {
+    "playground": {
+      "display": "interactive"
+    }
+  },
   "feedback": {
     "thumbsRating": true
   },
@@ -25,7 +30,7 @@
     ],
     "primary": {
       "type": "github",
-      "href": "https://github.com/useveto"
+      "href": "https://github.com/useveto/docs"
     }
   },
   "anchors": [
