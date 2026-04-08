@@ -10,7 +10,9 @@
   "colors": {
     "primary": "#14bc84"
   },
-  "openapi": ["openapi.yml"],
+  "openapi": [
+    "openapi.yml"
+  ],
   "feedback": {
     "thumbsRating": true
   },
@@ -23,7 +25,7 @@
     ],
     "primary": {
       "type": "github",
-      "href": "https://github.com/useveto/veto"
+      "href": "https://github.com/useveto"
     }
   },
   "anchors": [
