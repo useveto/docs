@@ -3,10 +3,10 @@
   "theme": "luma",
   "name": "Veto",
   "logo": {
-    "light": "/images/logo-light.svg",
-    "dark": "/images/logo-dark.svg"
+    "light": "/images/logo.svg",
+    "dark": "/images/logo.svg"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/images/logo.svg",
   "colors": {
     "primary": "#14bc84"
   },
