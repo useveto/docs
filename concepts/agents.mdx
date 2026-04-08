@@ -1,0 +1,70 @@
+---
+title: "Agents"
+description: "Understanding agents in Veto — what they are, how they're managed, and their lifecycle."
+keywords: ["agents", "authorization", "AI agent", "status", "lifecycle"]
+---
+
+An agent is an AI actor — a bot, workflow, LLM-based tool, or any automated system — that you register with Veto so its tool calls can be authorized at runtime.
+
+Before Veto can make an authorization decision for an actor, that actor must be registered as an agent. Requests from unknown agent IDs are rejected with a 404.
+
+## Agent fields
+
+```typescript
+interface Agent {
+  id: string;
+  name: string;
+  description: string | null;
+  ownerId: string;
+  status: "active" | "suspended" | "revoked";
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+## Agent status
+
+Every agent has a `status` that controls whether it can make authorized tool calls.
+
+<AccordionGroup>
+  <Accordion title="active">
+    The agent can make tool calls. Each call is evaluated against the agent's attached policies to determine whether it is allowed or denied.
+  </Accordion>
+  <Accordion title="suspended">
+    All authorization requests from this agent are immediately denied, regardless of policies. Use suspension for temporary holds — you can reactivate a suspended agent.
+  </Accordion>
+  <Accordion title="revoked">
+    All authorization requests are denied, same as suspended. Revocation is intended to be permanent. A revoked agent cannot be reactivated through normal flows.
+  </Accordion>
+</AccordionGroup>
+
+<Info>
+  When an agent is suspended or revoked, Veto short-circuits policy evaluation entirely and returns `denied` without inspecting any rules. No policy can override a non-active status.
+</Info>
+
+## Workspace scoping
+
+Agents are scoped to your workspace. An agent ID from one workspace cannot be used to authorize calls in another. This isolation is enforced on every authorization request.
+
+## Creating an agent
+
+You can create agents from the Veto dashboard or programmatically via the API or Node.js SDK.
+
+```typescript
+import { VetoClient } from "@useveto/node";
+
+const veto = new VetoClient({ apiKey: process.env.VETO_API_KEY! });
+
+const agent = await veto.createAgent({
+  name: "support-bot",
+  description: "Customer support agent",
+});
+
+console.log(agent.id); // Use this ID when calling veto.authorize(...)
+```
+
+## Attaching policies
+
+An agent on its own has no permissions — Veto defaults to denying all tool calls for agents with no matching policies. To allow an agent to do anything, attach at least one [policy](/concepts/policies) with an explicit allowlist rule.
+
+A single agent can have multiple policies attached to it. See [Policies](/concepts/policies) for how evaluation order and priority work.

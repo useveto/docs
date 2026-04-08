@@ -1,0 +1,295 @@
+---
+title: 'Policies'
+description: 'Create, list, get, update, and delete policies via the REST API.'
+---
+
+Policies define what an agent is allowed to do. Each policy is attached to a single agent and contains one or more rules. When `/v1/authorize` is called, Veto evaluates all enabled policies for the agent in priority order and returns the first matching decision.
+
+## The policy object
+
+<ResponseField name="id" type="string">
+  UUID uniquely identifying the policy.
+</ResponseField>
+
+<ResponseField name="agentId" type="string">
+  UUID of the agent this policy applies to.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Human-readable name for the policy.
+</ResponseField>
+
+<ResponseField name="rules" type="PolicyRule[]">
+  Array of rules. At least one rule is required. Maximum 50 rules per policy.
+
+  <Expandable title="PolicyRule fields">
+    <ResponseField name="type" type="string" required>
+      Rule type. One of:
+      - `"tool_allowlist"` — explicitly allow the listed tools
+      - `"tool_denylist"` — explicitly deny the listed tools
+      - `"parameter_constraint"` — enforce constraints on parameter values
+      - `"rate_limit"` — limit how many times tools can be called in a time window
+      - `"time_based"` — restrict tool use to specific hours or days
+    </ResponseField>
+
+    <ResponseField name="tools" type="string[]">
+      Tool names this rule applies to. Supports glob patterns (e.g. `"calendar.*"`). Omit or use `["*"]` to match all tools.
+    </ResponseField>
+
+    <ResponseField name="parameters" type="object">
+      Parameter constraints, keyed by parameter name. Each constraint may include:
+      - `regex` — value must match this regular expression (max 128 characters)
+      - `enum` — value must be one of the listed strings (max 100 entries)
+      - `min` — numeric minimum (inclusive)
+      - `max` — numeric maximum (inclusive)
+    </ResponseField>
+
+    <ResponseField name="rateLimit" type="object">
+      Required when `type` is `"rate_limit"`.
+      - `maxCalls` (integer, 1–1,000,000) — maximum allowed calls in the window
+      - `windowSeconds` (integer, 1–86400) — time window duration in seconds
+    </ResponseField>
+
+    <ResponseField name="timeWindow" type="object">
+      Required when `type` is `"time_based"`.
+      - `allowedHours` — array of allowed hours (0–23)
+      - `allowedDays` — array of allowed days (0=Sunday, 6=Saturday)
+      - `timezone` — IANA timezone string (e.g. `"America/Chicago"`)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="priority" type="number">
+  Evaluation order. Higher values are evaluated first. Defaults to `0`.
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean">
+  Whether this policy is active. Disabled policies are skipped during evaluation.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp of creation.
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string">
+  ISO 8601 timestamp of the last update.
+</ResponseField>
+
+---
+
+## POST /v1/policies
+
+Create a new policy.
+
+<Note>Requires an API key with `admin` scope.</Note>
+
+<ParamField body="agent_id" type="string" required>
+  UUID of the agent this policy applies to. The agent must exist in your workspace.
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Descriptive name for the policy. Must be between 1 and 255 characters.
+</ParamField>
+
+<ParamField body="rules" type="PolicyRule[]" required>
+  Array of policy rules. Minimum 1, maximum 50. See the policy object above for the `PolicyRule` schema.
+</ParamField>
+
+<ParamField body="priority" type="number" default="0">
+  Evaluation order relative to other policies for this agent. Higher values are evaluated first. Must be an integer between 0 and 1,000.
+</ParamField>
+
+<ParamField body="enabled" type="boolean" default="true">
+  Whether the policy is active immediately on creation.
+</ParamField>
+
+Returns the created policy object with HTTP `201`.
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://api.veto.tools/v1/policies \
+  -H "Authorization: Bearer veto_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Allow file reads with rate limit",
+    "priority": 10,
+    "rules": [
+      {
+        "type": "tool_allowlist",
+        "tools": ["file.read", "file.list"]
+      },
+      {
+        "type": "rate_limit",
+        "tools": ["file.read"],
+        "rateLimit": { "maxCalls": 1000, "windowSeconds": 3600 }
+      }
+    ]
+  }'
+```
+
+```typescript Node.js
+const policy = await veto.createPolicy({
+  agentId: '550e8400-e29b-41d4-a716-446655440000',
+  name: 'Allow file reads with rate limit',
+  priority: 10,
+  rules: [
+    { type: 'tool_allowlist', tools: ['file.read', 'file.list'] },
+    {
+      type: 'rate_limit',
+      tools: ['file.read'],
+      rateLimit: { maxCalls: 1000, windowSeconds: 3600 },
+    },
+  ],
+});
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 201
+{
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "agentId": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Allow file reads with rate limit",
+  "priority": 10,
+  "enabled": true,
+  "rules": [
+    {
+      "type": "tool_allowlist",
+      "tools": ["file.read", "file.list"]
+    },
+    {
+      "type": "rate_limit",
+      "tools": ["file.read"],
+      "rateLimit": { "maxCalls": 1000, "windowSeconds": 3600 }
+    }
+  ],
+  "createdAt": "2024-01-15T10:00:00.000Z",
+  "updatedAt": "2024-01-15T10:00:00.000Z"
+}
+```
+
+</ResponseExample>
+
+---
+
+## GET /v1/policies
+
+List policies in your workspace.
+
+<ParamField query="agent_id" type="string">
+  Filter by agent UUID. Returns only policies attached to this agent.
+</ParamField>
+
+<ParamField query="limit" type="number" default="100">
+  Maximum number of policies to return. Must be between 1 and 200.
+</ParamField>
+
+<ParamField query="offset" type="number" default="0">
+  Number of policies to skip.
+</ParamField>
+
+Returns a paginated envelope with an array of policy objects.
+
+<RequestExample>
+
+```bash cURL
+curl "https://api.veto.tools/v1/policies?agent_id=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer veto_..."
+```
+
+```typescript Node.js
+const policies = await veto.listPolicies('550e8400-e29b-41d4-a716-446655440000');
+```
+
+</RequestExample>
+
+---
+
+## GET /v1/policies/:id
+
+Retrieve a single policy by UUID.
+
+Returns the policy object, or `404` with `POLICY_NOT_FOUND` if it does not exist in your workspace.
+
+<RequestExample>
+
+```bash cURL
+curl https://api.veto.tools/v1/policies/3fa85f64-5717-4562-b3fc-2c963f66afa6 \
+  -H "Authorization: Bearer veto_..."
+```
+
+```typescript Node.js
+const policy = await veto.getPolicy('3fa85f64-5717-4562-b3fc-2c963f66afa6');
+```
+
+</RequestExample>
+
+---
+
+## PATCH /v1/policies/:id
+
+Update an existing policy. All fields are optional.
+
+<Note>Requires an API key with `admin` scope.</Note>
+
+<ParamField body="name" type="string">
+  New name for the policy.
+</ParamField>
+
+<ParamField body="rules" type="PolicyRule[]">
+  Replacement rule set. When provided, replaces the entire `rules` array. Minimum 1, maximum 50.
+</ParamField>
+
+<ParamField body="priority" type="number">
+  New priority value. Integer between 0 and 1,000.
+</ParamField>
+
+<ParamField body="enabled" type="boolean">
+  Enable or disable the policy. Disabled policies are skipped during evaluation.
+</ParamField>
+
+Returns the updated policy object.
+
+<RequestExample>
+
+```bash cURL
+curl -X PATCH https://api.veto.tools/v1/policies/3fa85f64-5717-4562-b3fc-2c963f66afa6 \
+  -H "Authorization: Bearer veto_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "enabled": false }'
+```
+
+```typescript Node.js
+const updated = await veto.updatePolicy('3fa85f64-5717-4562-b3fc-2c963f66afa6', {
+  enabled: false,
+});
+```
+
+</RequestExample>
+
+---
+
+## DELETE /v1/policies/:id
+
+Permanently delete a policy.
+
+<Note>Requires an API key with `admin` scope.</Note>
+
+Returns `204 No Content` on success.
+
+<RequestExample>
+
+```bash cURL
+curl -X DELETE https://api.veto.tools/v1/policies/3fa85f64-5717-4562-b3fc-2c963f66afa6 \
+  -H "Authorization: Bearer veto_..."
+```
+
+```typescript Node.js
+await veto.deletePolicy('3fa85f64-5717-4562-b3fc-2c963f66afa6');
+```
+
+</RequestExample>

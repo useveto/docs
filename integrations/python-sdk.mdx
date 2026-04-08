@@ -1,0 +1,279 @@
+---
+title: "Python SDK"
+description: "Use the useveto Python package to integrate Veto into Python applications."
+---
+
+## Installation
+
+```bash
+pip install useveto
+```
+
+## Clients
+
+The `useveto` package ships two clients with identical APIs — choose based on whether your application is synchronous or asynchronous.
+
+| Client           | Use when                                |
+| ---------------- | --------------------------------------- |
+| `VetoClient`     | Synchronous code (scripts, Django, Flask, etc.) |
+| `AsyncVetoClient`| Async code (FastAPI, async frameworks)  |
+
+Both accept the same constructor parameters:
+
+| Parameter  | Type    | Required | Description                                      |
+| ---------- | ------- | -------- | ------------------------------------------------ |
+| `api_key`  | `str`   | Yes      | Your Veto API key.                               |
+| `endpoint` | `str`   | No       | API base URL. Default: `https://api.veto.tools` |
+| `timeout`  | `float` | No       | Request timeout in seconds. Default: `5.0`      |
+
+## Sync client
+
+```python
+from veto import VetoClient
+
+client = VetoClient(
+    api_key="veto_...",
+    endpoint="https://api.veto.tools",  # optional
+    timeout=5.0,                         # optional
+)
+
+result = client.authorize("agent-uuid", "file.write", {"path": "/etc/passwd"})
+
+if not result.allowed:
+    print(f"Blocked: {result.reason}")
+```
+
+## Async client
+
+```python
+from veto import AsyncVetoClient
+
+async def check_authorization():
+    async with AsyncVetoClient(api_key="veto_...") as client:
+        result = await client.authorize("agent-uuid", "send_email", {
+            "to": "user@example.com",
+            "subject": "Refund confirmation",
+        })
+
+        if not result.allowed:
+            print(f"Blocked: {result.reason}")
+```
+
+## Authorization
+
+`authorize` is the primary method. It checks whether an agent is permitted to call a tool with the given parameters.
+
+```python
+client.authorize(agent_id, tool_name, parameters={}) -> AuthorizationResult
+```
+
+The `AuthorizationResult` has these fields:
+
+| Field              | Type  | Description                                          |
+| ------------------ | ----- | ---------------------------------------------------- |
+| `allowed`          | `bool`| Whether the action is permitted.                     |
+| `outcome`          | `str` | `"allowed"`, `"denied"`, or `"escalated"`.           |
+| `matched_policy_id`| `str \| None` | ID of the matching policy, or `None` for default deny. |
+| `reason`           | `str` | Human-readable explanation.                          |
+| `evaluated_at`     | `str` | ISO timestamp of the decision.                       |
+
+<Note>
+  If no policy matches the agent and tool, Veto **denies by default**. You must explicitly create a policy that allows an action for it to be permitted.
+</Note>
+
+## Agent management
+
+<CodeGroup>
+
+```python create_agent
+from veto import VetoClient, CreateAgentInput
+
+client = VetoClient(api_key="veto_...")
+
+agent = client.create_agent(CreateAgentInput(
+    name="support-bot",
+    description="Customer support automation agent",
+))
+# returns Agent: id, name, description, owner_id, status, created_at, updated_at
+```
+
+```python list_agents
+agents = client.list_agents()
+# returns List[Agent]
+```
+
+```python get_agent
+agent = client.get_agent("agent-uuid")
+```
+
+```python delete_agent
+client.delete_agent("agent-uuid")
+# returns None
+```
+
+</CodeGroup>
+
+## Policy management
+
+<CodeGroup>
+
+```python create_policy
+from veto import VetoClient, CreatePolicyInput, PolicyRule
+
+client = VetoClient(api_key="veto_...")
+
+policy = client.create_policy(CreatePolicyInput(
+    agent_id="agent-uuid",
+    name="Allow safe read operations",
+    rules=[
+        PolicyRule(type="tool_allowlist", tools=["file.read", "web.search"]),
+        PolicyRule(type="tool_denylist", tools=["file.delete", "system.exec"]),
+    ],
+    priority=10,
+))
+```
+
+```python list_policies
+# all policies
+policies = client.list_policies()
+
+# filter by agent
+agent_policies = client.list_policies(agent_id="agent-uuid")
+```
+
+```python get_policy
+policy = client.get_policy("policy-uuid")
+```
+
+```python update_policy
+from veto import UpdatePolicyInput
+
+updated = client.update_policy("policy-uuid", UpdatePolicyInput(
+    name="Allow safe read operations (updated)",
+    enabled=False,
+))
+```
+
+```python delete_policy
+client.delete_policy("policy-uuid")
+# returns None
+```
+
+</CodeGroup>
+
+## Audit logs
+
+```python
+response = client.query_audit_log(
+    agent_id="agent-uuid",             # optional
+    tool_name="file.write",            # optional
+    result="denied",                   # optional: "allowed" | "denied" | "escalated"
+    from_time="2026-01-01T00:00:00Z",  # optional ISO datetime
+    to_time="2026-04-01T00:00:00Z",    # optional ISO datetime
+    limit=100,                         # optional
+    offset=0,                          # optional
+)
+
+print(f"{response.pagination.total} total entries")
+for entry in response.data:
+    print(f"[{entry.timestamp}] {entry.tool_name} — {entry.reason}")
+```
+
+## LangChain integration
+
+Wrap any LangChain tool function with Veto authorization. If the action is denied, the wrapper returns the denial reason as a string instead of executing the tool.
+
+```python
+from veto import VetoClient, VetoError
+
+veto = VetoClient(api_key="veto_...")
+
+def veto_tool_wrapper(tool_func, tool_name: str, agent_id: str):
+    """Wrap any LangChain tool with Veto authorization."""
+    def wrapper(*args, **kwargs):
+        result = veto.authorize(agent_id, tool_name, kwargs)
+        if not result.allowed:
+            return f"Authorization denied: {result.reason}"
+        return tool_func(*args, **kwargs)
+    wrapper.__name__ = tool_func.__name__
+    wrapper.__doc__ = tool_func.__doc__
+    return wrapper
+
+# Usage
+def web_search(query: str) -> str:
+    return search_the_web(query)
+
+web_search = veto_tool_wrapper(web_search, tool_name="web_search", agent_id="agent-uuid")
+```
+
+## CrewAI integration
+
+Use `before_tool_callback` to intercept every tool call in a CrewAI agent. Return `False` to block execution.
+
+```python
+from veto import VetoClient
+
+veto = VetoClient(api_key="veto_...")
+
+def before_tool_callback(agent_id: str):
+    def callback(tool_name: str, tool_input: dict) -> bool:
+        result = veto.authorize(agent_id, tool_name, tool_input)
+        return result.allowed
+    return callback
+
+# Attach to your CrewAI agent
+agent = Agent(
+    role="Support Bot",
+    before_tool_callback=before_tool_callback("agent-uuid"),
+    ...
+)
+```
+
+## Error handling
+
+```python
+from veto import VetoError, UnauthorizedError, RateLimitError
+import time
+
+try:
+    result = client.authorize("agent-uuid", "send_email", {
+        "to": "user@example.com",
+    })
+    if not result.allowed:
+        print(f"Denied: {result.reason}")
+except RateLimitError as e:
+    # back off and retry
+    print(f"Rate limited — retry after {e.retry_after_ms}ms")
+    time.sleep(e.retry_after_ms / 1000)
+except UnauthorizedError:
+    # bad or expired API key
+    print("Invalid API key — check VETO_API_KEY")
+except VetoError as e:
+    # any other Veto error (timeout, network, server error)
+    print(f"{e.code}: {e}")
+```
+
+## Context managers
+
+Both clients support context managers for automatic resource cleanup.
+
+<CodeGroup>
+
+```python sync
+from veto import VetoClient
+
+with VetoClient(api_key="veto_...") as client:
+    result = client.authorize("agent-1", "file.read")
+    print(result.allowed)
+```
+
+```python async
+from veto import AsyncVetoClient
+
+async def run():
+    async with AsyncVetoClient(api_key="veto_...") as client:
+        result = await client.authorize("agent-1", "file.read")
+        print(result.allowed)
+```
+
+</CodeGroup>

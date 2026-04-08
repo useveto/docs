@@ -1,0 +1,210 @@
+---
+title: "Quick Start"
+description: "Make your first authorization check in under 5 minutes."
+keywords: ["quickstart", "getting started", "authorization", "sdk", "api key", "agent", "policy"]
+---
+
+<Steps>
+  <Step title="Create a workspace">
+    Sign up at [app.veto.tools](https://app.veto.tools) and create a workspace. A workspace is the container for your agents, policies, and audit logs.
+  </Step>
+
+  <Step title="Get your API key">
+    In the dashboard, go to **Settings → API Keys** and create a new key.
+
+    <Note>
+      The raw API key is shown **once** at creation and never again — only the key prefix is stored. Copy it immediately and save it somewhere secure, such as a password manager or secrets vault.
+    </Note>
+
+    Your key will look like this:
+
+    ```
+    veto_a3f8c2e1d4b7...
+    ```
+
+    For local development, store it in an environment variable:
+
+    ```bash
+    export VETO_API_KEY=veto_a3f8c2e1d4b7...
+    ```
+  </Step>
+
+  <Step title="Install the SDK">
+    <CodeGroup>
+
+    ```bash Node.js
+    npm install @useveto/node
+    ```
+
+    ```bash Python
+    pip install useveto
+    ```
+
+    </CodeGroup>
+  </Step>
+
+  <Step title="Create an agent">
+    An agent represents an AI actor — a bot, workflow, or model — that calls tools. Register one using the SDK or the dashboard.
+
+    <CodeGroup>
+
+    ```typescript Node.js
+    import { VetoClient } from "@useveto/node";
+
+    const veto = new VetoClient({ apiKey: process.env.VETO_API_KEY! });
+
+    const agent = await veto.createAgent({
+      name: "support-bot",
+      description: "Customer support agent that can send emails and look up orders",
+    });
+
+    console.log(agent.id); // e.g. "agent_01j..."
+    ```
+
+    ```python Python
+    import os
+    from veto import VetoClient, CreateAgentInput
+
+    veto = VetoClient(api_key=os.environ["VETO_API_KEY"])
+
+    agent = veto.create_agent(CreateAgentInput(
+        name="support-bot",
+        description="Customer support agent that can send emails and look up orders",
+    ))
+
+    print(agent.id)  # e.g. "agent_01j..."
+    ```
+
+    </CodeGroup>
+
+    You can also create agents directly in the dashboard under **Agents → New agent**. Copy the agent ID — you'll use it in authorization checks.
+  </Step>
+
+  <Step title="Create a policy">
+    Policies define what your agent is allowed to do. The following example creates a policy that allows the `support-bot` agent to call `send_email` and `lookup_order`, and nothing else.
+
+    <CodeGroup>
+
+    ```typescript Node.js
+    const policy = await veto.createPolicy({
+      agentId: agent.id,
+      name: "Support bot — allowed tools",
+      rules: [
+        {
+          type: "tool_allowlist",
+          tools: ["send_email", "lookup_order"],
+        },
+      ],
+      priority: 10,
+      enabled: true,
+    });
+
+    console.log(policy.id);
+    ```
+
+    ```python Python
+    from veto import CreatePolicyInput, PolicyRule
+
+    policy = veto.create_policy(CreatePolicyInput(
+        agent_id=agent.id,
+        name="Support bot — allowed tools",
+        rules=[
+            PolicyRule(
+                type="tool_allowlist",
+                tools=["send_email", "lookup_order"],
+            )
+        ],
+        priority=10,
+        enabled=True,
+    ))
+
+    print(policy.id)
+    ```
+
+    </CodeGroup>
+
+    Any tool not on the allowlist is blocked by default — you don't need to define a denylist.
+  </Step>
+
+  <Step title="Make an authorization check">
+    Call `veto.authorize()` before each tool execution. Pass the agent ID, the tool name, and (optionally) the call parameters.
+
+    <CodeGroup>
+
+    ```typescript Node.js
+    const result = await veto.authorize(
+      agent.id,        // agentId: string
+      "send_email",    // toolName: string
+      {                // parameters (optional)
+        to: "customer@example.com",
+        subject: "Your order has shipped",
+      },
+    );
+
+    if (result.allowed) {
+      // proceed with the tool call
+      await sendEmail(result);
+    } else {
+      console.log(`Blocked: ${result.reason}`);
+    }
+    ```
+
+    ```python Python
+    result = veto.authorize(
+        agent_id=agent.id,
+        tool_name="send_email",
+        parameters={
+            "to": "customer@example.com",
+            "subject": "Your order has shipped",
+        },
+    )
+
+    if result.allowed:
+        # proceed with the tool call
+        send_email(result)
+    else:
+        print(f"Blocked: {result.reason}")
+    ```
+
+    </CodeGroup>
+
+    The response includes:
+
+    | Field | Type | Description |
+    |---|---|---|
+    | `allowed` | `boolean` | Whether the action is permitted |
+    | `outcome` | `"allowed" \| "denied" \| "escalated"` | The decision |
+    | `matchedPolicyId` | `string \| null` | The policy that produced this decision, or `null` for default deny |
+    | `reason` | `string` | Human-readable explanation |
+    | `evaluatedAt` | `string` | ISO 8601 timestamp of the evaluation |
+
+    A denied response looks like this:
+
+    ```json
+    {
+      "allowed": false,
+      "outcome": "denied",
+      "matchedPolicyId": null,
+      "reason": "No policy allows tool 'delete_account' for this agent",
+      "evaluatedAt": "2026-04-08T12:00:00.000Z"
+    }
+    ```
+  </Step>
+</Steps>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Learn about API key scopes, rate limits, and secure key management.
+  </Card>
+  <Card title="Policies" icon="shield-check" href="/concepts/policies">
+    Explore all five rule types — allowlists, denylists, parameter constraints, rate limits, and time windows.
+  </Card>
+  <Card title="Node.js SDK" icon="node-js" href="/integrations/node-sdk">
+    Full SDK reference including MCP middleware.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/overview">
+    REST API reference for every endpoint.
+  </Card>
+</CardGroup>

@@ -1,0 +1,162 @@
+---
+title: 'API keys'
+description: 'Create, list, and revoke API keys via the REST API.'
+---
+
+API keys authenticate requests to the Veto API. Each key is scoped to a workspace and carries a set of permission scopes.
+
+<Note>All API key management endpoints require an API key with `admin` scope.</Note>
+
+## The API key object
+
+<ResponseField name="id" type="string">
+  UUID uniquely identifying the key.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Human-readable name for the key.
+</ResponseField>
+
+<ResponseField name="prefix" type="string">
+  The first 12 characters of the raw key (e.g. `veto_a1b2c3d4`). Use this to identify which key was used — it is safe to display and log.
+</ResponseField>
+
+<ResponseField name="scopes" type="string[]">
+  Permission scopes granted to this key. `["admin"]` grants full access. `["read-only"]` restricts to non-mutating endpoints.
+</ResponseField>
+
+<ResponseField name="expiresAt" type="string | null">
+  ISO 8601 expiration date, or `null` if the key never expires.
+</ResponseField>
+
+<ResponseField name="lastUsedAt" type="string | null">
+  ISO 8601 timestamp of the most recent authenticated request, or `null` if the key has never been used. Only available on list responses.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp of when the key was created.
+</ResponseField>
+
+---
+
+## POST /v1/api-keys
+
+Create a new API key for your workspace.
+
+<Warning>
+  The raw API key is returned **only once** in the creation response. Store it immediately in a secure secrets manager — you cannot retrieve it again. Only the prefix is stored by Veto.
+</Warning>
+
+<ParamField body="name" type="string" required>
+  Human-readable name to identify this key. Must be between 1 and 255 characters.
+</ParamField>
+
+<ParamField body="scopes" type="string[]" required>
+  Permission scopes for the key. Use `["admin"]` for full access or `["read-only"]` for read-only access.
+</ParamField>
+
+<ParamField body="expiresAt" type="string">
+  Optional expiration date as an ISO 8601 datetime string. If omitted, the key never expires.
+</ParamField>
+
+Returns `201` with the key metadata **and the raw key**. The `key` field is not included in any subsequent responses.
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://api.veto.tools/v1/api-keys \
+  -H "Authorization: Bearer veto_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Production worker",
+    "scopes": ["admin"],
+    "expiresAt": "2025-01-01T00:00:00.000Z"
+  }'
+```
+
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 201
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Production worker",
+  "prefix": "veto_a1b2c3",
+  "scopes": ["admin"],
+  "expiresAt": "2025-01-01T00:00:00.000Z",
+  "createdAt": "2024-01-15T10:00:00.000Z",
+  "key": "veto_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+}
+```
+
+</ResponseExample>
+
+---
+
+## GET /v1/api-keys
+
+List all API keys in your workspace. The raw key and its hash are never included in list responses.
+
+<ParamField query="limit" type="number" default="100">
+  Maximum number of keys to return. Must be between 1 and 200.
+</ParamField>
+
+<ParamField query="offset" type="number" default="0">
+  Number of keys to skip.
+</ParamField>
+
+Returns a paginated envelope with key metadata objects.
+
+<RequestExample>
+
+```bash cURL
+curl https://api.veto.tools/v1/api-keys \
+  -H "Authorization: Bearer veto_..."
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200
+{
+  "data": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Production worker",
+      "prefix": "veto_a1b2c3",
+      "scopes": ["admin"],
+      "expiresAt": "2025-01-01T00:00:00.000Z",
+      "lastUsedAt": "2024-01-15T10:30:00.000Z",
+      "createdAt": "2024-01-15T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "limit": 100,
+    "offset": 0,
+    "count": 1,
+    "total": 1
+  }
+}
+```
+
+</ResponseExample>
+
+---
+
+## DELETE /v1/api-keys/:id
+
+Revoke an API key. The key is permanently deleted and will no longer authenticate requests. This action cannot be undone.
+
+Returns `204 No Content` on success.
+
+<RequestExample>
+
+```bash cURL
+curl -X DELETE https://api.veto.tools/v1/api-keys/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+  -H "Authorization: Bearer veto_..."
+```
+
+</RequestExample>

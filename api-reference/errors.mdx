@@ -1,0 +1,94 @@
+---
+title: 'Errors'
+description: 'Error codes, HTTP status codes, and how to handle errors from the Veto API.'
+---
+
+All errors from the Veto API use the same response envelope:
+
+```json
+{
+  "error": {
+    "code": "AGENT_NOT_FOUND",
+    "message": "Agent not found in this workspace"
+  }
+}
+```
+
+`code` is a machine-readable string you can match against in code. `message` is a human-readable description of the problem.
+
+## Error codes
+
+| HTTP status | Code | Meaning |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | Request body or query parameters failed validation |
+| `401` | `UNAUTHORIZED` | Missing or invalid API key |
+| `403` | `FORBIDDEN` | Valid key but insufficient scope for this operation |
+| `404` | `AGENT_NOT_FOUND` | Agent does not exist in this workspace |
+| `404` | `POLICY_NOT_FOUND` | Policy does not exist |
+| `404` | `API_KEY_NOT_FOUND` | API key does not exist |
+| `429` | `RATE_LIMITED` | Rate limit exceeded |
+| `500` | `INTERNAL_ERROR` | Internal server error |
+
+## Rate limit errors
+
+When you receive a `429`, the response includes a `Retry-After` header with the number of seconds until the rate limit window resets:
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 34
+```
+
+Wait the indicated number of seconds before retrying.
+
+## SDK error handling
+
+### Node.js
+
+The Veto Node.js SDK exposes three error classes:
+
+- **`VetoError`** — base class for all Veto errors. Has `.code` (string) and `.statusCode` (number).
+- **`UnauthorizedError`** — thrown on `401` responses. Extends `VetoError`.
+- **`RateLimitError`** — thrown on `429` responses. Extends `VetoError`. Has `.retryAfterMs` (milliseconds until reset).
+
+```typescript
+import { VetoClient, VetoError, UnauthorizedError, RateLimitError } from '@useveto/node';
+
+const veto = new VetoClient({ apiKey: 'veto_...' });
+
+try {
+  const result = await veto.authorize('agent-uuid', 'file.write', { path: '/tmp/out.txt' });
+} catch (err) {
+  if (err instanceof RateLimitError) {
+    // Wait the indicated time then retry
+    await sleep(err.retryAfterMs);
+    retry();
+  } else if (err instanceof UnauthorizedError) {
+    // API key is missing or invalid
+    console.error('Check your API key:', err.message);
+  } else if (err instanceof VetoError) {
+    // Any other Veto API error
+    console.error(`API error ${err.statusCode} [${err.code}]:`, err.message);
+  } else {
+    throw err;
+  }
+}
+```
+
+### Python
+
+```python
+from veto import VetoClient, VetoError, UnauthorizedError, RateLimitError
+import time
+
+client = VetoClient(api_key="veto_...")
+
+try:
+    result = client.authorize("agent-uuid", "file.write", {"path": "/tmp/out.txt"})
+except RateLimitError as e:
+    # e.retry_after_ms contains milliseconds until reset
+    time.sleep(e.retry_after_ms / 1000)
+except UnauthorizedError as e:
+    print("Check your API key:", e.message)
+except VetoError as e:
+    print(f"API error {e.status_code} [{e.code}]: {e.message}")
+```

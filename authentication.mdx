@@ -1,0 +1,155 @@
+---
+title: "Authentication"
+description: "How to authenticate with the Veto API using API keys."
+keywords: ["authentication", "api key", "bearer token", "authorization header", "scopes", "rate limits"]
+---
+
+Veto uses API keys for authentication. Every request to the Veto API must include a valid key in the `Authorization` header using the Bearer scheme.
+
+## API key format
+
+All Veto API keys are prefixed with `veto_` followed by 32 hex characters:
+
+```
+veto_a3f8c2e1d4b79f2e6c1a8d3b5e4f7c2a
+```
+
+This prefix makes keys easy to identify in logs, environment variables, and secret scanners.
+
+## Sending the key
+
+Include your key in the `Authorization` header on every request:
+
+```http
+Authorization: Bearer veto_a3f8c2e1d4b79f2e6c1a8d3b5e4f7c2a
+```
+
+### Raw HTTP
+
+```http
+POST /v1/authorize HTTP/1.1
+Host: api.veto.tools
+Authorization: Bearer veto_a3f8c2e1d4b79f2e6c1a8d3b5e4f7c2a
+Content-Type: application/json
+
+{
+  "agent_id": "agent_01j...",
+  "tool_name": "send_email",
+  "parameters": {
+    "to": "customer@example.com"
+  }
+}
+```
+
+### Node.js SDK
+
+Pass the key to `VetoClient` at construction time. The SDK attaches the `Authorization` header automatically on every request.
+
+```typescript
+import { VetoClient } from "@useveto/node";
+
+const veto = new VetoClient({
+  apiKey: process.env.VETO_API_KEY!, // required
+  endpoint: "https://api.veto.tools", // optional, this is the default
+  timeout: 5000,                      // optional, ms (default: 5000)
+});
+```
+
+<Warning>
+  Never hardcode your API key in source code. Load it from an environment variable or secrets manager. If a key is compromised, revoke it immediately from **Settings → API Keys** in the dashboard.
+</Warning>
+
+## Key scopes
+
+Each API key has one of two scopes:
+
+| Scope | Access |
+|---|---|
+| `admin` | Full access — create, read, update, and delete agents, policies, and API keys |
+| `read-only` | Query access — read agents, policies, and audit logs, but no mutations |
+
+The authorization endpoint (`POST /v1/authorize`) works with **both** scopes. For production services that only call `authorize`, use a read-only key to limit the blast radius of a leaked credential.
+
+## Creating API keys
+
+### Dashboard
+
+Go to **Settings → API Keys** and click **New API key**. Give it a name, choose a scope, and optionally set an expiry date.
+
+<Note>
+  The raw key is shown **once** at creation and never again. Copy it before closing the dialog. After creation, only the key prefix (e.g., `veto_a3f8c2`) is shown for identification.
+</Note>
+
+### API
+
+You can also create keys programmatically. This requires an existing key with `admin` scope.
+
+```http
+POST /v1/api-keys HTTP/1.1
+Host: api.veto.tools
+Authorization: Bearer veto_<your-admin-key>
+Content-Type: application/json
+
+{
+  "name": "production-service",
+  "scopes": ["read-only"]
+}
+```
+
+Response (key shown once):
+
+```json
+{
+  "id": "key_01j...",
+  "name": "production-service",
+  "prefix": "veto_a3f8c2",
+  "scopes": ["read-only"],
+  "expiresAt": null,
+  "createdAt": "2026-04-08T12:00:00.000Z",
+  "key": "veto_a3f8c2e1d4b79f2e6c1a8d3b5e4f7c2a"
+}
+```
+
+To revoke a key, send `DELETE /v1/api-keys/:id` with an admin key.
+
+## Rate limits
+
+<Note>
+  The Veto API enforces a limit of **600 requests per minute** per API key. This applies across all endpoints.
+</Note>
+
+Every response includes rate limit headers:
+
+| Header | Description |
+|---|---|
+| `X-RateLimit-Limit` | Your limit (requests per minute) |
+| `X-RateLimit-Remaining` | Requests remaining in the current window |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets |
+
+When you exceed the limit, the API returns `429 Too Many Requests` with a `Retry-After` header indicating how many seconds to wait.
+
+The SDK surfaces this as a `RateLimitError` with a `retryAfterMs` property:
+
+```typescript
+import { VetoClient, RateLimitError, UnauthorizedError, VetoError } from "@useveto/node";
+
+try {
+  const result = await veto.authorize(agentId, toolName, parameters);
+} catch (error) {
+  if (error instanceof RateLimitError) {
+    console.log(`Rate limited. Retry after ${error.retryAfterMs}ms`);
+  } else if (error instanceof UnauthorizedError) {
+    console.log("Invalid or missing API key");
+  } else if (error instanceof VetoError) {
+    console.log(`API error ${error.statusCode}: ${error.message}`);
+  }
+}
+```
+
+## Error reference
+
+| Status | Code | Meaning |
+|---|---|---|
+| `401 Unauthorized` | `UNAUTHORIZED` | The API key is missing, malformed, or invalid |
+| `403 Forbidden` | `FORBIDDEN` | The key is valid but its scope does not permit this action (e.g., a read-only key attempting to create a policy) |
+| `429 Too Many Requests` | `RATE_LIMITED` | The per-minute request limit has been exceeded. Check the `Retry-After` response header |

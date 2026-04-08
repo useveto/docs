@@ -1,0 +1,92 @@
+---
+title: "Dashboard"
+description: "Manage agents, policies, and audit logs from the Veto dashboard at app.veto.tools."
+keywords: ["dashboard", "agents", "policies", "audit log", "api keys", "settings"]
+---
+
+<Note>
+  The Veto dashboard is at [app.veto.tools](https://app.veto.tools) and requires a Veto account.
+</Note>
+
+## Signing in
+
+Go to [app.veto.tools](https://app.veto.tools) and sign in with your email, Google, or GitHub account. The first time you sign in, Veto automatically creates a workspace for you — no extra setup needed.
+
+## What you can do
+
+### Overview
+
+The overview page is the landing page for your workspace. It shows high-level stats: how many agents you have and a summary of recent authorization decisions.
+
+### Agents
+
+The **Agents** section is where you register and manage the AI actors in your system.
+
+- Create a new agent with a name and description
+- View all agents and their current status
+- Click an agent to see its attached policies and recent authorization activity
+- Delete agents you no longer need
+
+Each agent has one of three statuses:
+
+| Status | Behavior |
+|--------|----------|
+| `active` | Authorization checks run normally |
+| `suspended` | All requests are denied while suspended |
+| `revoked` | Permanently disabled; cannot be reactivated |
+
+### Policies
+
+The **Policies** section lets you define what each agent is allowed to do.
+
+- Create policies using the visual rule builder — no code required
+- Enable or disable individual policies with a toggle
+- Set a priority to control evaluation order (higher number = evaluated first)
+- Add one or more rules to each policy:
+
+| Rule type | What it does |
+|-----------|--------------|
+| Tool allowlist | Explicitly permits specific tools |
+| Tool denylist | Explicitly blocks specific tools |
+| Parameter constraints | Validates tool parameters with regex, enums, or min/max ranges |
+| Rate limits | Caps how many times a tool can be called within a time window |
+| Time-based windows | Restricts tool access to specific hours or days |
+
+Click any policy to see the full rule configuration.
+
+### Audit log
+
+The **Audit Log** is a complete, searchable record of every authorization decision Veto has made.
+
+Filter by:
+- Agent
+- Result (`allowed`, `denied`, or `escalated`)
+- Tool name
+- Time range
+
+Each log entry shows:
+
+| Field | Description |
+|-------|-------------|
+| Timestamp | When the decision was made |
+| Agent | Which agent made the request |
+| Tool | The tool that was evaluated |
+| Result | `allowed`, `denied`, or `escalated` |
+| Reason | Why the decision was made |
+| Latency | How long evaluation took |
+| Matched policy | Which policy triggered the result |
+
+The log is paginated for large workspaces and append-only — entries cannot be deleted.
+
+### Settings → API keys
+
+The **Settings** page is where you manage API keys for programmatic access to the Veto API.
+
+- Create new keys with a name and scope (`admin` or `read-only`)
+- The full key is shown once on creation — copy it before closing the dialog
+- Existing keys are listed by their prefix (e.g., `veto_abc123...`) along with metadata like creation date and last used time
+- Revoke keys you no longer need
+
+<Tip>
+  Use read-only API keys for monitoring integrations and log aggregation pipelines. This limits exposure if a key is ever compromised — read-only keys cannot modify agents, policies, or other keys.
+</Tip>

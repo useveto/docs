@@ -1,0 +1,109 @@
+---
+title: 'API overview'
+description: 'Base URL, authentication, request format, and pagination for the Veto REST API.'
+---
+
+## Base URL
+
+All API requests are made to:
+
+```
+https://api.veto.tools
+```
+
+Every endpoint is prefixed with `/v1/`. For example:
+
+```
+https://api.veto.tools/v1/agents
+```
+
+## Authentication
+
+Include your API key as a Bearer token in the `Authorization` header on every request:
+
+```
+Authorization: Bearer veto_<your-key>
+```
+
+API keys are prefixed with `veto_`. You can create and manage keys via the [API Keys](/api-reference/api-keys) endpoints or the Veto dashboard.
+
+## Request format
+
+All request bodies must be JSON. Set the `Content-Type` header accordingly:
+
+```
+Content-Type: application/json
+```
+
+## Rate limits
+
+The API allows **600 requests per minute** per API key. Every response includes the following headers:
+
+| Header | Description |
+|---|---|
+| `X-RateLimit-Limit` | Maximum requests allowed per minute |
+| `X-RateLimit-Remaining` | Requests remaining in the current window |
+
+When you exceed the limit, the API returns `429 Too Many Requests` with a `Retry-After` header indicating how many seconds to wait before retrying.
+
+## Example request
+
+```bash
+curl https://api.veto.tools/v1/agents \
+  -H "Authorization: Bearer veto_..."
+```
+
+## Pagination
+
+List endpoints return a paginated envelope:
+
+```json
+{
+  "data": [...],
+  "pagination": {
+    "limit": 50,
+    "offset": 0,
+    "count": 10,
+    "total": 42
+  }
+}
+```
+
+| Field | Description |
+|---|---|
+| `data` | Array of results for the current page |
+| `pagination.limit` | Maximum results requested |
+| `pagination.offset` | Number of results skipped |
+| `pagination.count` | Number of results in this page |
+| `pagination.total` | Total number of matching results across all pages |
+
+Use `limit` and `offset` query parameters to paginate through results.
+
+## Error responses
+
+Errors follow a consistent shape:
+
+```json
+{
+  "error": {
+    "code": "AGENT_NOT_FOUND",
+    "message": "Agent not found in this workspace"
+  }
+}
+```
+
+See the [Errors](/api-reference/errors) page for a full list of error codes.
+
+## HTTP status codes
+
+| Code | Meaning |
+|---|---|
+| `200` | Success |
+| `201` | Resource created |
+| `204` | Success, no content (e.g. after a delete) |
+| `400` | Bad request — validation error |
+| `401` | Unauthorized — missing or invalid API key |
+| `403` | Forbidden — valid key, insufficient scope |
+| `404` | Not found |
+| `429` | Rate limit exceeded |
+| `500` | Internal server error |

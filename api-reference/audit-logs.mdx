@@ -1,0 +1,199 @@
+---
+title: 'Audit logs'
+description: 'Query and export the audit log of all authorization decisions.'
+---
+
+Every call to `/v1/authorize` produces an audit log entry, regardless of the outcome. The audit log is append-only and scoped to your workspace.
+
+<Note>
+  Audit log entries cannot be deleted via the API. The log is append-only to preserve a complete, tamper-evident record of authorization decisions.
+</Note>
+
+## The audit log entry object
+
+<ResponseField name="id" type="string">
+  UUID uniquely identifying this log entry.
+</ResponseField>
+
+<ResponseField name="agentId" type="string">
+  UUID of the agent that made the authorization request.
+</ResponseField>
+
+<ResponseField name="action" type="string">
+  The action type recorded. For authorization decisions this is always `"authorize"`.
+</ResponseField>
+
+<ResponseField name="toolName" type="string">
+  The tool name that was evaluated.
+</ResponseField>
+
+<ResponseField name="parameters" type="object">
+  The parameters from the authorization request, with sensitive keys redacted to `"[REDACTED]"`. Redacted key names include: `password`, `secret`, `token`, `key`, `credential`, `authorization`, `api_key`, `apiKey`, `access_token`, `refresh_token`.
+</ResponseField>
+
+<ResponseField name="result" type="string">
+  The authorization outcome. One of `"allowed"`, `"denied"`, or `"escalated"`.
+</ResponseField>
+
+<ResponseField name="policyId" type="string | null">
+  UUID of the policy that produced this decision. `null` when the default-deny rule applied.
+</ResponseField>
+
+<ResponseField name="reason" type="string">
+  Human-readable explanation of the decision.
+</ResponseField>
+
+<ResponseField name="latencyMs" type="number">
+  Time in milliseconds from when the request was received to when the decision was produced.
+</ResponseField>
+
+<ResponseField name="timestamp" type="string">
+  ISO 8601 timestamp of when the authorization was evaluated.
+</ResponseField>
+
+---
+
+## GET /v1/audit-logs
+
+Query audit logs with optional filters. Results are returned in reverse chronological order.
+
+<Note>Requires an API key with `admin` scope.</Note>
+
+<ParamField query="agent_id" type="string">
+  Filter by agent UUID.
+</ParamField>
+
+<ParamField query="action" type="string">
+  Filter by action type (e.g. `"authorize"`).
+</ParamField>
+
+<ParamField query="tool_name" type="string">
+  Filter by exact tool name.
+</ParamField>
+
+<ParamField query="result" type="string">
+  Filter by outcome. One of `"allowed"`, `"denied"`, or `"escalated"`.
+</ParamField>
+
+<ParamField query="from" type="string">
+  Start of the time range. ISO 8601 datetime string.
+</ParamField>
+
+<ParamField query="to" type="string">
+  End of the time range. ISO 8601 datetime string.
+</ParamField>
+
+<ParamField query="limit" type="number" default="100">
+  Maximum number of entries to return. Must be between 1 and 1,000.
+</ParamField>
+
+<ParamField query="offset" type="number" default="0">
+  Number of entries to skip.
+</ParamField>
+
+Returns a paginated envelope with an array of audit log entries.
+
+<RequestExample>
+
+```bash cURL
+curl "https://api.veto.tools/v1/audit-logs?agent_id=550e8400-e29b-41d4-a716-446655440000&result=denied&limit=25" \
+  -H "Authorization: Bearer veto_..."
+```
+
+```typescript Node.js
+const { data, pagination } = await veto.queryAuditLog({
+  agentId: '550e8400-e29b-41d4-a716-446655440000',
+  result: 'denied',
+  limit: 25,
+});
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200
+{
+  "data": [
+    {
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "agentId": "550e8400-e29b-41d4-a716-446655440000",
+      "action": "authorize",
+      "toolName": "file.write",
+      "parameters": { "path": "/etc/passwd" },
+      "result": "denied",
+      "policyId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "reason": "Parameter \"path\" value \"/etc/passwd\" does not match pattern /^\\/home\\//",
+      "latencyMs": 12,
+      "timestamp": "2024-01-15T10:30:00.000Z"
+    }
+  ],
+  "pagination": {
+    "limit": 25,
+    "offset": 0,
+    "count": 1,
+    "total": 1
+  }
+}
+```
+
+</ResponseExample>
+
+---
+
+## GET /v1/audit-logs/export
+
+Export audit logs as a CSV file. Accepts the same filter parameters as `GET /v1/audit-logs` (without `limit` and `offset`) and exports up to **5,000 rows**.
+
+<Note>Requires an API key with `admin` scope.</Note>
+
+<ParamField query="agent_id" type="string">
+  Filter by agent UUID.
+</ParamField>
+
+<ParamField query="action" type="string">
+  Filter by action type.
+</ParamField>
+
+<ParamField query="tool_name" type="string">
+  Filter by exact tool name.
+</ParamField>
+
+<ParamField query="result" type="string">
+  Filter by outcome. One of `"allowed"`, `"denied"`, or `"escalated"`.
+</ParamField>
+
+<ParamField query="from" type="string">
+  Start of the time range. ISO 8601 datetime string.
+</ParamField>
+
+<ParamField query="to" type="string">
+  End of the time range. ISO 8601 datetime string.
+</ParamField>
+
+The response is a CSV file with the following columns:
+
+```
+Timestamp, Agent ID, Tool, Result, Reason, Latency (ms), Parameters
+```
+
+Response headers:
+
+| Header | Description |
+|---|---|
+| `Content-Type` | `text/csv` |
+| `Content-Disposition` | `attachment; filename="veto-audit-log-<date>.csv"` |
+| `X-Veto-Export-Truncated` | `"true"` if the result set was truncated to the 5,000-row limit |
+| `X-Veto-Export-Limit` | `"5000"` — present when `X-Veto-Export-Truncated` is set |
+
+If `X-Veto-Export-Truncated: true` is present, narrow your query using `from` and `to` filters to retrieve the full dataset across multiple exports.
+
+<RequestExample>
+
+```bash cURL
+curl "https://api.veto.tools/v1/audit-logs/export?agent_id=550e8400-e29b-41d4-a716-446655440000&result=denied" \
+  -H "Authorization: Bearer veto_..." \
+  -o veto-audit.csv
+```
+
+</RequestExample>

@@ -1,0 +1,282 @@
+---
+title: "Node.js SDK"
+description: "Use @useveto/node to integrate Veto into Node.js and edge runtime applications."
+---
+
+## Installation
+
+```bash
+npm install @useveto/node
+```
+
+## Setup
+
+```typescript
+import { VetoClient } from "@useveto/node";
+
+const veto = new VetoClient({
+  apiKey: process.env.VETO_API_KEY!, // required
+  endpoint: "https://api.veto.tools",  // optional — default
+  timeout: 5000,                       // optional — ms, default 5000
+});
+```
+
+## Authorization
+
+`veto.authorize` is the primary method. It checks whether an agent is permitted to call a tool with the given parameters and returns an `AuthorizationResult`.
+
+```typescript
+veto.authorize(agentId: string, toolName: string, parameters?: Record<string, unknown>): Promise<AuthorizationResult>
+```
+
+The `AuthorizationResult` shape:
+
+| Field            | Type                                    | Description                                          |
+| ---------------- | --------------------------------------- | ---------------------------------------------------- |
+| `allowed`        | `boolean`                               | Whether the action is permitted.                     |
+| `outcome`        | `"allowed" \| "denied" \| "escalated"` | The full authorization outcome.                      |
+| `matchedPolicyId`| `string \| null`                        | ID of the policy that produced this decision, or `null` for default deny. |
+| `reason`         | `string`                                | Human-readable explanation.                          |
+| `evaluatedAt`    | `string`                                | ISO timestamp of when the decision was made.         |
+
+```typescript
+const result = await veto.authorize("support-bot", "send_email", {
+  to: "user@example.com",
+  subject: "Refund confirmation",
+});
+
+if (!result.allowed) {
+  console.log(`Blocked: ${result.reason}`);
+  return;
+}
+
+// proceed with sending the email
+```
+
+<Note>
+  If no policy matches the agent and tool, Veto **denies by default**. You must explicitly create a policy that allows an action for it to be permitted.
+</Note>
+
+## Agent management
+
+<CodeGroup>
+
+```typescript createAgent
+const agent = await veto.createAgent({
+  name: "support-bot",
+  description: "Customer support automation agent",
+});
+// returns Agent: { id, name, description, ownerId, status, createdAt, updatedAt }
+```
+
+```typescript listAgents
+const agents = await veto.listAgents();
+// returns Agent[]
+```
+
+```typescript getAgent
+const agent = await veto.getAgent("agent-uuid");
+```
+
+```typescript deleteAgent
+await veto.deleteAgent("agent-uuid");
+// returns void
+```
+
+</CodeGroup>
+
+## Policy management
+
+Policies contain one or more rules that determine what an agent can do. Higher `priority` values are evaluated first.
+
+### Rule types
+
+| Type                   | Description                                                  |
+| ---------------------- | ------------------------------------------------------------ |
+| `tool_allowlist`       | Explicitly allow the listed tools (glob patterns supported). |
+| `tool_denylist`        | Explicitly block the listed tools.                           |
+| `parameter_constraint` | Constrain parameter values via regex, enum, or numeric range.|
+| `rate_limit`           | Limit how many times a tool can be called per time window.   |
+| `time_based`           | Restrict tool use to specific hours or days of the week.     |
+
+### createPolicy
+
+```typescript
+const policy = await veto.createPolicy({
+  agentId: "agent-uuid",
+  name: "Allow safe read operations",
+  priority: 10,
+  enabled: true,
+  rules: [
+    {
+      type: "tool_allowlist",
+      tools: ["file.read", "web.search"],
+    },
+    {
+      type: "tool_denylist",
+      tools: ["file.delete", "system.exec"],
+    },
+    {
+      type: "parameter_constraint",
+      tools: ["file.read"],
+      parameters: {
+        path: {
+          regex: "^/home/",   // must start with /home/
+        },
+      },
+    },
+    {
+      type: "rate_limit",
+      tools: ["web.search"],
+      rateLimit: {
+        maxCalls: 100,
+        windowSeconds: 3600, // 100 calls per hour
+      },
+    },
+    {
+      type: "time_based",
+      tools: ["send_email"],
+      timeWindow: {
+        allowedHours: [9, 10, 11, 12, 13, 14, 15, 16, 17], // business hours
+        allowedDays: [1, 2, 3, 4, 5],                       // Monday–Friday
+        timezone: "America/New_York",
+      },
+    },
+  ],
+});
+```
+
+<CodeGroup>
+
+```typescript listPolicies
+// list all policies
+const policies = await veto.listPolicies();
+
+// filter by agent
+const agentPolicies = await veto.listPolicies("agent-uuid");
+```
+
+```typescript getPolicy
+const policy = await veto.getPolicy("policy-uuid");
+```
+
+```typescript updatePolicy
+const updated = await veto.updatePolicy("policy-uuid", {
+  name: "Allow safe read operations (updated)",
+  enabled: false,
+  // rules and priority can also be updated
+});
+```
+
+```typescript deletePolicy
+await veto.deletePolicy("policy-uuid");
+// returns void
+```
+
+</CodeGroup>
+
+## Audit log
+
+`queryAuditLog` returns a paginated list of every authorization decision Veto has made.
+
+```typescript
+veto.queryAuditLog(filters?: AuditLogFilters): Promise<PaginatedAuditLogResponse>
+```
+
+### AuditLogFilters
+
+| Field      | Type                                    | Description                             |
+| ---------- | --------------------------------------- | --------------------------------------- |
+| `agentId`  | `string`                                | Filter by agent.                        |
+| `action`   | `string`                                | Filter by action string.                |
+| `toolName` | `string`                                | Filter by tool name.                    |
+| `result`   | `"allowed" \| "denied" \| "escalated"` | Filter by outcome.                      |
+| `from`     | `string`                                | ISO timestamp — entries on or after.    |
+| `to`       | `string`                                | ISO timestamp — entries on or before.   |
+| `limit`    | `number`                                | Max entries to return.                  |
+| `offset`   | `number`                                | Pagination offset.                      |
+
+```typescript
+const log = await veto.queryAuditLog({
+  agentId: "agent-uuid",
+  result: "denied",
+  from: "2025-01-01T00:00:00Z",
+  limit: 50,
+  offset: 0,
+});
+
+console.log(`${log.pagination.total} total denials`);
+for (const entry of log.data) {
+  console.log(`[${entry.timestamp}] ${entry.toolName} — ${entry.reason}`);
+}
+```
+
+The response also includes a `pagination` object with `limit`, `offset`, `count`, and `total` fields.
+
+## Error handling
+
+The SDK exports three error classes:
+
+| Class              | Extends      | Code           | Status | Extra field                             |
+| ------------------ | ------------ | -------------- | ------ | --------------------------------------- |
+| `VetoError`        | `Error`      | varies         | varies | `.code: string`, `.statusCode: number`  |
+| `UnauthorizedError`| `VetoError`  | `UNAUTHORIZED` | 401    | —                                       |
+| `RateLimitError`   | `VetoError`  | `RATE_LIMITED` | 429    | `.retryAfterMs: number`                 |
+
+```typescript
+import { VetoError, UnauthorizedError, RateLimitError } from "@useveto/node";
+
+try {
+  const result = await veto.authorize("support-bot", "send_email", {
+    to: "user@example.com",
+  });
+
+  if (!result.allowed) {
+    console.warn(`Denied: ${result.reason}`);
+  }
+} catch (error) {
+  if (error instanceof RateLimitError) {
+    // back off and retry
+    console.error(`Rate limited — retry after ${error.retryAfterMs}ms`);
+    await sleep(error.retryAfterMs);
+  } else if (error instanceof UnauthorizedError) {
+    // bad or expired API key
+    console.error("Invalid API key — check VETO_API_KEY");
+  } else if (error instanceof VetoError) {
+    // any other Veto error (timeout, network, server error)
+    console.error(`Veto error [${error.code}]: ${error.message}`);
+  }
+}
+```
+
+<Note>
+  `VetoError` also covers `TIMEOUT` (status 408) and `NETWORK_ERROR` (status 0) when the Veto API is unreachable.
+</Note>
+
+## Fail-closed behavior
+
+By default, if the Veto API is unreachable (network error or timeout), the SDK **denies the request**. This ensures your agent cannot take unauthorized actions simply because authorization is unavailable.
+
+When using MCP middleware (`createVetoGuard` or `vetoMiddleware`), you can override this with the `onError` option:
+
+```typescript
+import { VetoClient, createVetoGuard } from "@useveto/node";
+
+const veto = new VetoClient({ apiKey: process.env.VETO_API_KEY! });
+
+// Default — fail-closed (recommended for production)
+const protect = createVetoGuard(veto, {
+  agentId: "my-agent",
+  onError: "deny",
+});
+
+// Fail-open — allow tool calls even when Veto is unreachable
+const protect = createVetoGuard(veto, {
+  agentId: "my-agent",
+  onError: "allow",
+});
+```
+
+<Warning>
+  `onError: "allow"` lets tool calls proceed when Veto is unreachable. This is not recommended for production — a network partition becomes a security gap.
+</Warning>

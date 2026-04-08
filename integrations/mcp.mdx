@@ -1,0 +1,135 @@
+---
+title: "MCP Integration"
+description: "Add Veto authorization to any Model Context Protocol server with a single wrapper."
+---
+
+## What is MCP?
+
+Model Context Protocol (MCP) is a standard for AI agents to call tools on external servers. Each tool invocation is a structured request that your server handles.
+
+Veto integrates at the MCP layer — authorization is evaluated **before** any tool handler executes. If a call is denied, your handler code never runs.
+
+## Installation
+
+```bash
+npm install @useveto/node
+```
+
+## Integration options
+
+<Tabs>
+  <Tab title="createVetoGuard (recommended)">
+
+`createVetoGuard` returns a `protect` function that wraps your tool handler. When authorization is denied, the handler never executes — Veto returns an MCP-compatible error response directly.
+
+```typescript
+import { VetoClient, createVetoGuard } from "@useveto/node";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+const veto = new VetoClient({ apiKey: process.env.VETO_API_KEY! });
+const protect = createVetoGuard(veto, { agentId: "support-bot" });
+
+const server = new McpServer({ name: "my-server", version: "1.0.0" });
+
+server.tool(
+  "send-email",
+  { to: z.string(), subject: z.string(), body: z.string() },
+  protect("send-email", async (params) => {
+    await sendEmail(params);
+    return { content: [{ type: "text", text: "Email sent!" }] };
+  }),
+);
+```
+
+When authorization is denied, `protect` returns this response to the MCP client instead of calling your handler:
+
+```json
+{
+  "content": [{ "type": "text", "text": "Authorization denied: ..." }],
+  "isError": true
+}
+```
+
+  </Tab>
+  <Tab title="vetoMiddleware (manual)">
+
+`vetoMiddleware` returns a guard function you call at the top of each handler. If authorization is denied, it **throws** a `VetoError` — you can catch it and handle it yourself.
+
+```typescript
+import { VetoClient, vetoMiddleware, VetoError } from "@useveto/node";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+const veto = new VetoClient({ apiKey: process.env.VETO_API_KEY! });
+const guard = vetoMiddleware(veto, { agentId: "support-bot" });
+
+const server = new McpServer({ name: "my-server", version: "1.0.0" });
+
+server.tool(
+  "send-email",
+  { to: z.string(), subject: z.string(), body: z.string() },
+  async (params) => {
+    await guard("send-email", params); // throws VetoError if denied
+    await sendEmail(params);
+    return { content: [{ type: "text", text: "Sent!" }] };
+  },
+);
+```
+
+Use `vetoMiddleware` when you need to add custom logic (logging, fallback behavior, conditional bypasses) around the authorization check.
+
+  </Tab>
+</Tabs>
+
+## VetoMcpOptions
+
+Both `createVetoGuard` and `vetoMiddleware` accept a `VetoMcpOptions` object as their second argument.
+
+| Option    | Type                          | Required | Description                                                                                       |
+| --------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `agentId` | `string`                      | Yes      | The agent ID to authorize against. Must match a registered agent in your Veto account.            |
+| `onError` | `"deny" \| "allow"`          | No       | What to do when the Veto API is unreachable. Default: `"deny"` (fail-closed).                    |
+| `onDenied`| `(toolName, reason) => void` | No       | Optional callback invoked whenever authorization is denied. Use for logging or metrics.           |
+
+```typescript
+const protect = createVetoGuard(veto, {
+  agentId: "support-bot",
+  onError: "deny",           // fail-closed (default)
+  onDenied: (toolName, reason) => {
+    metrics.increment("veto.denied", { tool: toolName });
+    logger.warn(`Tool denied: ${toolName} — ${reason}`);
+  },
+});
+```
+
+## Fail-closed behavior
+
+If the Veto API is unreachable (network error, timeout, 5xx), tool calls are **blocked by default**. This ensures your agent cannot take unauthorized actions simply because authorization is temporarily unavailable.
+
+<Note>
+  Fail-closed is the right default for production. A momentary network partition should not become a security gap.
+</Note>
+
+<Warning>
+  Setting `onError: "allow"` (fail-open) lets tool calls proceed when Veto is unreachable. This is not recommended for production — use it only in development or for non-sensitive tools where availability outweighs authorization risk.
+</Warning>
+
+## How it works
+
+```
+MCP Client → MCP Server → createVetoGuard → Veto API
+                               ↓                  ↓
+                         (allowed) run handler  (denied) isError: true
+```
+
+Step by step:
+
+1. An MCP client sends a `tools/call` request.
+2. `createVetoGuard` (or `vetoMiddleware`) intercepts the call before your handler runs.
+3. It sends an authorization check to the Veto API with the agent ID, tool name, and parameters.
+4. **Allowed** — your tool handler executes and returns its result.
+5. **Denied** — Veto returns `{ isError: true }` without executing your handler. (`vetoMiddleware` throws instead.)
+6. **Veto API unreachable** — tool call is blocked (fail-closed by default).
+
+Every decision is recorded in the Veto audit log regardless of outcome.

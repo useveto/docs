@@ -1,0 +1,120 @@
+---
+title: "API Keys"
+description: "Create, manage, and revoke API keys for accessing the Veto API."
+keywords: ["api keys", "authentication", "admin", "read-only", "scopes", "revoke"]
+---
+
+<Warning>
+  Your API key grants full access to your workspace. Store it in an environment variable — never hardcode it in source code.
+</Warning>
+
+API keys authenticate requests to the Veto REST API and SDK. You can create multiple keys per workspace, which makes it easy to rotate them without downtime and scope them to least privilege.
+
+## Key format
+
+Veto API keys start with `veto_` followed by 32 hex characters:
+
+```
+veto_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+```
+
+After creation, only the first 12 characters (the prefix) are stored and displayed. The full key is shown exactly once.
+
+## Key scopes
+
+| Scope | Access |
+|-------|--------|
+| `admin` | Full access — create, update, and delete agents, policies, and API keys |
+| `read-only` | Read access — query agents, policies, and audit logs; cannot create or modify anything |
+
+<Note>
+  `POST /v1/authorize` works with both `admin` and `read-only` keys. You can use a read-only key in your agent runtime and reserve the admin key for your control plane.
+</Note>
+
+## Creating a key
+
+### From the dashboard
+
+<Steps>
+  <Step title="Open API Keys settings">
+    Go to **Settings → API Keys** in the [Veto dashboard](https://app.veto.tools).
+  </Step>
+  <Step title="Click New API Key">
+    Click **New API Key** to open the creation dialog.
+  </Step>
+  <Step title="Name and scope the key">
+    Give the key a descriptive name (e.g., `production-server`) and select a scope: `admin` or `read-only`.
+  </Step>
+  <Step title="Copy the key">
+    Copy the key immediately — it is displayed once and never stored in plaintext. Close the dialog only after you've saved it somewhere secure.
+  </Step>
+</Steps>
+
+### Via the API
+
+```bash
+curl -X POST https://api.veto.tools/v1/api-keys \
+  -H "Authorization: Bearer veto_..." \
+  -H "Content-Type: application/json" \
+  -d '{"name": "production-server", "scopes": ["admin"]}'
+```
+
+The response includes a `key` field with the raw key. Store it immediately — subsequent calls to `GET /v1/api-keys` return only the prefix.
+
+## Using a key
+
+Pass the key as a Bearer token in every request:
+
+```
+Authorization: Bearer veto_...
+```
+
+With the SDK:
+
+```typescript
+const veto = new VetoClient({ apiKey: process.env.VETO_API_KEY! });
+```
+
+## Rotating keys
+
+Veto supports multiple active keys per workspace, so you can rotate without downtime:
+
+<Steps>
+  <Step title="Create a new key">
+    Create a new key in **Settings → API Keys** or via `POST /v1/api-keys`.
+  </Step>
+  <Step title="Update your application">
+    Deploy your application with the new key set in your environment.
+  </Step>
+  <Step title="Verify the new key is working">
+    Confirm requests are succeeding with the new key before proceeding.
+  </Step>
+  <Step title="Revoke the old key">
+    Once traffic has shifted, revoke the old key from **Settings → API Keys**.
+  </Step>
+</Steps>
+
+## Revoking a key
+
+**From the dashboard:** Go to **Settings → API Keys** and click **Revoke** next to the key you want to remove.
+
+**Via the API:**
+
+```bash
+curl -X DELETE https://api.veto.tools/v1/api-keys/{id} \
+  -H "Authorization: Bearer veto_..."
+```
+
+A successful revocation returns `204 No Content`. Revoked keys are immediately invalid — any request using them will return `401 Unauthorized`.
+
+## Rate limits
+
+Each API key is limited to **600 requests per minute**. Every response includes rate limit headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Maximum requests allowed per minute |
+| `X-RateLimit-Remaining` | Requests remaining in the current window |
+| `X-RateLimit-Reset` | Unix timestamp when the window resets |
+
+If you exceed the limit, the API returns `429 Too Many Requests` with a `Retry-After` header indicating how many seconds to wait before retrying.

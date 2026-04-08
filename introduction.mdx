@@ -1,0 +1,64 @@
+---
+title: "Introduction"
+description: "What Veto is, why it exists, and how it fits into an AI agent stack."
+keywords: ["veto", "authorization", "ai agents", "runtime", "policies", "tool calls"]
+---
+
+Veto is a runtime authorization service for AI agents. It sits between your agent and the tools it calls, evaluates every action against the policies you define, and decides: **allow**, **deny**, or **escalate** — in under 10ms, at the edge.
+
+## The problem
+
+Identity protocols like MCP and OAuth answer one question: *who is this agent?* They don't answer the harder question: *what should this agent be allowed to do?*
+
+An authenticated agent can still send emails it shouldn't send, delete records it shouldn't delete, or call external APIs at unbounded rates. Authentication is a prerequisite — it's not authorization.
+
+Veto fills that gap.
+
+## How it fits
+
+Every tool call your agent makes passes through Veto before it executes:
+
+```
+Agent → Veto (authorized?) → Tool execution
+```
+
+If a matching policy allows the action, it proceeds. If nothing allows it, it's blocked. There is no implicit trust — the default posture is deny.
+
+## Key concepts
+
+**Agents** are the AI actors you register with Veto — bots, workflows, or models that call tools on behalf of users or systems. Each agent has a stable ID used in authorization checks.
+
+**Policies** are the rules that govern what an agent can do. A policy is a named set of rules attached to an agent. Rules can express allowlists, denylists, parameter constraints, rate limits, and time-based windows.
+
+**Authorization checks** are the calls your code makes to Veto at runtime — one per tool invocation. Veto evaluates the matching policies and returns a decision with a reason.
+
+**Audit log** is the complete record of every decision Veto has made. Every authorization check — allowed or denied — is logged and queryable, giving you a full trail of agent behavior.
+
+## What you get
+
+<CardGroup cols={2}>
+  <Card title="Sub-10ms decisions" icon="bolt">
+    Powered by Cloudflare Workers with global distribution. Authorization adds no meaningful latency to your tool calls.
+  </Card>
+  <Card title="Default-deny posture" icon="shield">
+    No matching policy means blocked. You opt in to what's allowed — not what's denied.
+  </Card>
+  <Card title="Full audit trail" icon="list">
+    Every check is logged with the outcome, matched policy, reason, and latency. Query it from the dashboard or API.
+  </Card>
+  <Card title="Node.js and Python SDKs" icon="code">
+    Typed clients for both languages. One method call to authorize a tool call.
+  </Card>
+  <Card title="MCP-native middleware" icon="plug">
+    Drop-in guard and middleware helpers for Model Context Protocol servers.
+  </Card>
+  <Card title="Five rule types" icon="list-checks">
+    Tool allowlists, denylists, parameter constraints, rate limits, and time-based windows.
+  </Card>
+</CardGroup>
+
+## Next step
+
+<Card title="Quick Start" icon="rocket" href="/quickstart">
+  Make your first authorization check in under 5 minutes.
+</Card>

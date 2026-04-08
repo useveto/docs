@@ -1,0 +1,131 @@
+---
+title: 'Authorize'
+description: 'Check if an agent is authorized to call a specific tool with given parameters.'
+---
+
+The authorize endpoint is the core of Veto. Call it **before every tool execution** to get an allow/deny decision. Veto evaluates all active policies for the agent and returns the result in a single synchronous response.
+
+## POST /v1/authorize
+
+<ParamField body="agent_id" type="string" required>
+  UUID of the agent making the tool call.
+</ParamField>
+
+<ParamField body="tool_name" type="string" required>
+  Name of the tool being invoked. Can be any string up to 255 characters — use a consistent naming convention across your application (e.g. `file.write`, `send_email`, `db.query`).
+</ParamField>
+
+<ParamField body="parameters" type="object">
+  The parameters being passed to the tool. Used for parameter constraint evaluation in policies. The total serialized size of this object must not exceed 64 KB.
+
+  Keys matching sensitive patterns (`password`, `secret`, `token`, `key`, `credential`, `authorization`, `api_key`, `apiKey`, `access_token`, `refresh_token`) are automatically redacted to `"[REDACTED]"` before being stored in the audit log.
+</ParamField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://api.veto.tools/v1/authorize \
+  -H "Authorization: Bearer veto_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_id": "550e8400-e29b-41d4-a716-446655440000",
+    "tool_name": "file.write",
+    "parameters": { "path": "/home/user/doc.txt", "content": "Hello" }
+  }'
+```
+
+```typescript Node.js
+const result = await veto.authorize(
+  '550e8400-e29b-41d4-a716-446655440000',
+  'file.write',
+  { path: '/home/user/doc.txt', content: 'Hello' }
+);
+
+if (!result.allowed) {
+  throw new Error(`Blocked: ${result.reason}`);
+}
+```
+
+</RequestExample>
+
+## Response
+
+Returns an `AuthorizationResult` object.
+
+<ResponseField name="allowed" type="boolean" required>
+  `true` if the action is permitted, `false` otherwise. This is the primary field to branch on.
+</ResponseField>
+
+<ResponseField name="outcome" type="string" required>
+  The authorization decision. One of `"allowed"`, `"denied"`, or `"escalated"`.
+</ResponseField>
+
+<ResponseField name="matchedPolicyId" type="string | null" required>
+  UUID of the policy that produced this decision. `null` when the agent has no matching policy and the default-deny rule applies.
+</ResponseField>
+
+<ResponseField name="reason" type="string" required>
+  Human-readable explanation of the decision. Useful for logging and surfacing context to users.
+</ResponseField>
+
+<ResponseField name="evaluatedAt" type="string" required>
+  ISO 8601 timestamp of when the evaluation was performed.
+</ResponseField>
+
+<ResponseExample>
+
+```json Allowed
+{
+  "allowed": true,
+  "outcome": "allowed",
+  "matchedPolicyId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "reason": "Allowed by policy \"Safe file operations\"",
+  "evaluatedAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+```json Denied (no matching policy)
+{
+  "allowed": false,
+  "outcome": "denied",
+  "matchedPolicyId": null,
+  "reason": "No policy explicitly allows this action (default deny)",
+  "evaluatedAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+```json Denied (parameter constraint)
+{
+  "allowed": false,
+  "outcome": "denied",
+  "matchedPolicyId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "reason": "Parameter \"path\" value \"/etc/passwd\" does not match pattern /^\\/home\\//",
+  "evaluatedAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+</ResponseExample>
+
+## Agent status behavior
+
+Veto checks the agent's status before evaluating any policies:
+
+- **`active`** — normal policy evaluation proceeds.
+- **`suspended`** — all requests are immediately denied. No policies are evaluated.
+- **`revoked`** — all requests are immediately denied. No policies are evaluated.
+
+To re-enable a suspended agent, update its status to `"active"` via [PATCH /v1/agents/:id](/api-reference/agents).
+
+## Default deny
+
+If no enabled policy matches the tool call, Veto denies the request. Authorization requires an explicit allow — there is no implicit permission.
+
+## Audit logging
+
+Every call to `/v1/authorize` is recorded in the audit log, including denied requests. If the audit log write fails (for example, due to a database error), the authorization decision is still returned — but the response will include:
+
+```
+X-Veto-Audit: failed
+```
+
+This header signals a compliance gap: the decision was made but not recorded. Your integration should monitor for this header if audit trail completeness is a requirement.

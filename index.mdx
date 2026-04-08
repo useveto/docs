@@ -1,0 +1,59 @@
+---
+title: "Veto Documentation"
+description: "Runtime authorization for AI agents — evaluate every tool call against your policies in under 10ms."
+---
+
+Veto sits between your AI agent and the actions it takes. Every tool call is checked against the policies you define before it executes. If no policy allows it, it's blocked — by default.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Make your first authorization check in minutes.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Get your API key and start making authenticated requests.
+  </Card>
+  <Card title="Policies" icon="shield-check" href="/concepts/policies">
+    Learn how to define what your agents are allowed to do.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/overview">
+    Explore every endpoint in the Veto REST API.
+  </Card>
+</CardGroup>
+
+## How it works
+
+<Steps>
+  <Step title="Register an agent">
+    Create an agent in the [Veto dashboard](https://app.veto.tools) or via the API. Each agent represents an AI actor — a bot, workflow, or model — that you want to control.
+  </Step>
+  <Step title="Define policies">
+    Attach policies to your agent that specify which tools it can call, under what conditions, and how often. Policies use an explicit allow model: if nothing allows an action, it's denied.
+  </Step>
+  <Step title="Authorize at runtime">
+    Call `POST /v1/authorize` (or use the SDK) before each tool execution. Veto evaluates your policies and returns `allowed: true` or `allowed: false` with a reason.
+  </Step>
+  <Step title="Audit every decision">
+    Every authorization check is logged. Query the audit log from the dashboard or API to see what was allowed, denied, and why.
+  </Step>
+</Steps>
+
+## Key features
+
+- **Default deny** — no matching policy means blocked. Safe by default.
+- **5 rule types** — allowlists, denylists, parameter constraints, rate limits, and time-based windows.
+- **Sub-10ms at the edge** — powered by Cloudflare Workers with global distribution.
+- **MCP-native** — drop-in middleware for Model Context Protocol servers.
+- **Full audit trail** — every decision is logged and queryable.
+- **Node.js and Python SDKs** — typed clients for both languages.
+
+<CardGroup cols={3}>
+  <Card title="Node.js SDK" icon="node-js" href="/integrations/node-sdk">
+    Typed client for Node.js and edge runtimes.
+  </Card>
+  <Card title="Python SDK" icon="python" href="/integrations/python-sdk">
+    Sync and async clients for Python.
+  </Card>
+  <Card title="MCP Integration" icon="plug" href="/integrations/mcp">
+    Drop-in middleware for MCP servers.
+  </Card>
+</CardGroup>

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "luma",
+  "name": "Veto",
+  "favicon": "https://media.brand.dev/3b9c0f4a-1ea6-44c7-969a-e270cd558018.svg",
+  "colors": {
+    "primary": "#14bc84"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/useveto/veto"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Docs",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/agents",
+              "concepts/policies",
+              "concepts/rules",
+              "concepts/audit-log"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/node-sdk",
+              "integrations/python-sdk",
+              "integrations/mcp"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "dashboard/overview",
+              "dashboard/api-keys"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/overview",
+              "api-reference/errors"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api-reference/authorize",
+              "api-reference/agents",
+              "api-reference/policies",
+              "api-reference/audit-logs",
+              "api-reference/api-keys"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

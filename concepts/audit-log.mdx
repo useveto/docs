@@ -1,0 +1,117 @@
+---
+title: "Audit Log"
+description: "Every authorization decision Veto makes is logged and queryable."
+keywords: ["audit log", "logs", "authorization history", "compliance", "export"]
+---
+
+Every call to `POST /v1/authorize` creates an immutable audit log entry. The audit log gives you a complete record of what your agents tried to do, what was allowed or denied, and why.
+
+## Audit log entries
+
+```typescript
+interface AuditLogEntry {
+  id: string;
+  agentId: string;
+  action: string;
+  toolName: string;
+  parameters: Record<string, unknown>;
+  result: "allowed" | "denied" | "escalated";
+  policyId: string | null;
+  reason: string;
+  latencyMs: number;
+  timestamp: string;
+}
+```
+
+Each entry captures:
+
+| Field | Description |
+|-------|-------------|
+| `agentId` | The agent that made the request |
+| `toolName` | The tool the agent attempted to call |
+| `parameters` | The parameters passed with the call (sensitive values redacted) |
+| `result` | The authorization outcome: `allowed`, `denied`, or `escalated` |
+| `policyId` | The policy that produced the decision, or `null` if default deny |
+| `reason` | A human-readable explanation of the decision |
+| `latencyMs` | Time taken to evaluate the request, in milliseconds |
+| `timestamp` | When the authorization request was received (ISO 8601) |
+
+## Sensitive parameter redaction
+
+Before parameters are written to the audit log, Veto automatically redacts values whose keys match any of the following patterns:
+
+`password`, `secret`, `token`, `key`, `credential`, `authorization`, `api_key`, `apiKey`, `access_token`, `refresh_token`
+
+Matched values are replaced with `"[REDACTED]"`. This applies to both top-level keys and nested object keys.
+
+## Example log entry
+
+```json
+{
+  "id": "log_01j9xkqp4c8tz6wm3r7nvs5b",
+  "agentId": "agt_01j9xkqp4c8tz6wm3r7nvs5a",
+  "action": "authorize",
+  "toolName": "file.write",
+  "parameters": {
+    "path": "/tmp/output.txt",
+    "content": "Hello, world!",
+    "api_key": "[REDACTED]"
+  },
+  "result": "denied",
+  "policyId": "pol_01j9xkqp4c8tz6wm3r7nvs5c",
+  "reason": "Parameter \"path\" value \"/tmp/output.txt\" does not match pattern /^\\/home\\//",
+  "latencyMs": 12,
+  "timestamp": "2026-04-08T14:32:01.000Z"
+}
+```
+
+## Append-only
+
+The audit log is append-only. Entries cannot be deleted or modified via the API. This ensures your audit trail is tamper-evident and suitable for compliance purposes.
+
+## Querying the audit log
+
+Use the Node.js SDK or the API to filter and page through audit log entries.
+
+```typescript
+import { VetoClient } from "@useveto/node";
+
+const veto = new VetoClient({ apiKey: process.env.VETO_API_KEY! });
+
+const logs = await veto.queryAuditLog({
+  agentId: "agt_01j9xkqp4c8tz6wm3r7nvs5a",
+  result: "denied",
+  limit: 50,
+});
+
+console.log(logs.data);          // array of AuditLogEntry
+console.log(logs.pagination);    // { limit, offset, count, total }
+```
+
+Available filters:
+
+| Filter | Type | Description |
+|--------|------|-------------|
+| `agentId` | string | Only entries for this agent |
+| `toolName` | string | Only entries for this tool name (exact match) |
+| `result` | `"allowed"` \| `"denied"` \| `"escalated"` | Filter by outcome |
+| `from` | ISO date string | Entries at or after this timestamp |
+| `to` | ISO date string | Entries at or before this timestamp |
+| `limit` | number | Number of entries to return |
+| `offset` | number | Pagination offset |
+
+Results are always returned in reverse chronological order (newest first).
+
+## Exporting to CSV
+
+You can export audit log entries as a CSV file via `GET /v1/audit-logs/export`. The export supports the same filters as the query endpoint and returns up to **5,000 rows** per request.
+
+The CSV includes the following columns: `Timestamp`, `Agent ID`, `Tool`, `Result`, `Reason`, `Latency (ms)`, `Parameters`.
+
+<Info>
+  If the export is truncated because there are more than 5,000 matching entries, the response includes an `X-Veto-Export-Truncated: true` header. Narrow your filters (for example, reduce the date range) to export the full dataset in multiple requests.
+</Info>
+
+## Dashboard
+
+The Veto dashboard provides a searchable, filterable view of your audit log. You can filter by agent, tool name, result, and date range without writing any code.

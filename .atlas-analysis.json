@@ -1,0 +1,105 @@
+{
+  "projectType": "saas",
+  "projectName": "Veto",
+  "projectDescription": "Runtime authorization for AI agents — evaluates every tool call against your policies and decides allow, deny, or escalate in under 10ms.",
+  "theme": "luma",
+  "primaryColor": "#14bc84",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Docs",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/agents",
+              "concepts/policies",
+              "concepts/rules",
+              "concepts/audit-log"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/node-sdk",
+              "integrations/python-sdk",
+              "integrations/mcp"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "dashboard/overview",
+              "dashboard/api-keys"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/overview",
+              "api-reference/errors"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api-reference/authorize",
+              "api-reference/agents",
+              "api-reference/policies",
+              "api-reference/audit-logs",
+              "api-reference/api-keys"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Per-action runtime authorization for every AI agent tool call",
+    "Policy engine with tool allowlist, denylist, parameter constraints, rate limiting, and time-based rules",
+    "Default-deny posture: no matching policy means blocked",
+    "Sub-10ms authorization checks at the edge (Cloudflare Workers)",
+    "MCP-native middleware — drop-in integration for Model Context Protocol servers",
+    "Full audit trail of every authorization decision",
+    "Multi-tenant workspaces with scoped API keys",
+    "Node.js and Python SDKs with typed clients"
+  ],
+  "publicApiSurface": [
+    "POST /v1/authorize",
+    "POST /v1/agents",
+    "GET /v1/agents",
+    "GET /v1/agents/:id",
+    "PATCH /v1/agents/:id",
+    "DELETE /v1/agents/:id",
+    "POST /v1/policies",
+    "GET /v1/policies",
+    "GET /v1/policies/:id",
+    "PATCH /v1/policies/:id",
+    "DELETE /v1/policies/:id",
+    "GET /v1/audit-logs",
+    "GET /v1/audit-logs/export",
+    "POST /v1/api-keys",
+    "GET /v1/api-keys",
+    "DELETE /v1/api-keys/:id",
+    "VetoClient (Node.js) — authorize(), createAgent(), listAgents(), getAgent(), deleteAgent(), createPolicy(), listPolicies(), getPolicy(), updatePolicy(), deletePolicy(), queryAuditLog()",
+    "createVetoGuard() — MCP tool wrapper (Node.js)",
+    "vetoMiddleware() — MCP middleware pattern (Node.js)",
+    "VetoClient / AsyncVetoClient (Python) — authorize(), create_agent(), list_agents(), get_agent(), delete_agent(), create_policy(), list_policies(), get_policy(), update_policy(), delete_policy(), query_audit_log()",
+    "VetoError, UnauthorizedError, RateLimitError"
+  ]
+}

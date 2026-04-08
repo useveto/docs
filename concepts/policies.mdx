@@ -1,0 +1,85 @@
+---
+title: "Policies"
+description: "How Veto policies govern what agents are allowed to do."
+keywords: ["policies", "authorization", "rules", "priority", "allow", "deny"]
+---
+
+A policy is a named set of [rules](/concepts/rules) attached to a specific agent. When an agent makes a tool call, Veto evaluates that agent's policies to decide whether to allow or deny the request.
+
+## Policy fields
+
+```typescript
+interface Policy {
+  id: string;
+  agentId: string;
+  name: string;
+  rules: PolicyRule[];
+  priority: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+## Default deny
+
+Veto uses a **default deny** model. If no enabled policy explicitly allows a tool call, the request is denied — even if no rule explicitly blocks it either.
+
+This means an agent with no policies attached, or only disabled policies, can make no tool calls at all.
+
+## Priority
+
+When an agent has multiple policies, they are evaluated in descending priority order — **higher number = evaluated first**.
+
+The first policy that produces a definitive match wins. Evaluation stops there; subsequent lower-priority policies are not checked.
+
+**Example:** An agent has two policies:
+
+| Policy | Priority | Purpose |
+|--------|----------|---------|
+| Block dangerous tools | 10 | Denylists `system.exec` and `file.delete` |
+| Allow safe tools | 0 | Allowlists `file.read` and `web.search` |
+
+When the agent calls `system.exec`, the "Block dangerous tools" policy (priority 10) is evaluated first and immediately denies the request. The "Allow safe tools" policy is never reached.
+
+When the agent calls `file.read`, "Block dangerous tools" is still evaluated first. The denylist rule doesn't match `file.read`, so it doesn't produce a definitive decision. Evaluation continues to "Allow safe tools", which allowlists `file.read` and returns `allowed`.
+
+## Enabled and disabled policies
+
+Setting `enabled: false` on a policy causes it to be skipped entirely during evaluation. Disabling a policy is useful for temporarily suspending a set of rules without deleting them.
+
+## Multiple policies per agent
+
+You can layer multiple policies on a single agent using priority:
+
+- Put narrow deny rules at higher priority to block specific tools first
+- Put broader allow rules at lower priority as a baseline
+- Add constraint or rate-limit policies at intermediate priorities
+
+## Creating a policy
+
+```typescript
+import { VetoClient } from "@useveto/node";
+
+const veto = new VetoClient({ apiKey: process.env.VETO_API_KEY! });
+
+const policy = await veto.createPolicy({
+  agentId: "agt_123",
+  name: "Allow safe tools",
+  priority: 0,
+  enabled: true,
+  rules: [
+    {
+      type: "tool_allowlist",
+      tools: ["file.read", "web.search"],
+    },
+    {
+      type: "rate_limit",
+      tools: ["web.search"],
+      rateLimit: { maxCalls: 100, windowSeconds: 3600 },
+    },
+  ],
+});
+```
+
+See [Rules](/concepts/rules) for a full reference on every rule type you can include.

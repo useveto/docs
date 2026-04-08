@@ -1,0 +1,210 @@
+---
+title: "Rules"
+description: "The five rule types you can use in Veto policies."
+keywords: ["rules", "allowlist", "denylist", "parameter constraint", "rate limit", "time-based", "policy rules"]
+---
+
+Rules are the building blocks of [policies](/concepts/policies). Each rule defines a specific condition that must be satisfied for a tool call to proceed. A policy can contain multiple rules of different types.
+
+```typescript
+interface PolicyRule {
+  type: "tool_allowlist" | "tool_denylist" | "parameter_constraint" | "rate_limit" | "time_based";
+  tools?: string[];           // which tools this rule applies to (supports trailing wildcard)
+  parameters?: Record<string, ParameterConstraint>;
+  rateLimit?: RateLimitConfig;
+  timeWindow?: TimeWindowConfig;
+}
+```
+
+## Tool patterns
+
+Several rule types accept a `tools` array that scopes the rule to specific tool names. Two pattern forms are supported:
+
+- **Exact match**: `"file.read"` matches only `file.read`
+- **Trailing wildcard**: `"file.*"` matches `file.read`, `file.write`, `file.delete`, and any other tool starting with `file.`
+- **Match all**: `"*"` matches any tool name
+
+---
+
+## 1. tool_allowlist
+
+An allowlist explicitly permits the listed tools. If the requested tool is **not** in the list, the request is denied.
+
+```json
+{
+  "type": "tool_allowlist",
+  "tools": ["file.read", "web.search"]
+}
+```
+
+Using a wildcard to allow an entire namespace:
+
+```json
+{
+  "type": "tool_allowlist",
+  "tools": ["calendar.*"]
+}
+```
+
+<Info>
+  An allowlist rule that matches the requested tool affirmatively contributes to an `allowed` decision. The policy evaluator requires at least one affirmative rule to return `allowed`.
+</Info>
+
+---
+
+## 2. tool_denylist
+
+A denylist explicitly blocks the listed tools. If the requested tool **is** in the list, the request is denied immediately.
+
+```json
+{
+  "type": "tool_denylist",
+  "tools": ["system.exec", "file.delete"]
+}
+```
+
+**Important:** A denylist does not implicitly allow everything else. If your policy contains only denylist rules and no allowlist rules, the policy will never produce an `allowed` decision — tools not on the denylist simply won't match, and evaluation will fall through to the next policy (or default deny).
+
+<Warning>
+  To block specific tools while allowing others, use a denylist policy at higher priority combined with a separate allowlist policy at lower priority. See [Policies](/concepts/policies) for an example.
+</Warning>
+
+---
+
+## 3. parameter_constraint
+
+A parameter constraint validates the values of tool parameters before allowing the call. If any parameter fails its constraint, the request is denied.
+
+```typescript
+interface ParameterConstraint {
+  regex?: string;   // value must match this regular expression
+  enum?: string[];  // value must be one of these strings
+  min?: number;     // value must be >= this number (inclusive)
+  max?: number;     // value must be <= this number (inclusive)
+}
+```
+
+Use the `tools` field to scope the constraint to specific tools. Omit `tools` to apply the constraint to all tools.
+
+**Example: restrict file writes to paths under `/home/`**
+
+```json
+{
+  "type": "parameter_constraint",
+  "tools": ["file.write"],
+  "parameters": {
+    "path": { "regex": "^/home/" }
+  }
+}
+```
+
+**Example: restrict an environment parameter to known values**
+
+```json
+{
+  "type": "parameter_constraint",
+  "tools": ["deploy.trigger"],
+  "parameters": {
+    "environment": { "enum": ["staging", "production"] }
+  }
+}
+```
+
+**Example: cap a numeric parameter within a safe range**
+
+```json
+{
+  "type": "parameter_constraint",
+  "parameters": {
+    "timeout": { "min": 1, "max": 30 }
+  }
+}
+```
+
+<Info>
+  Parameter values that match a [sensitive key pattern](/concepts/audit-log#sensitive-parameter-redaction) (such as `password`, `token`, or `api_key`) are redacted in denial reasons and audit log entries.
+</Info>
+
+---
+
+## 4. rate_limit
+
+A rate limit caps how many times an agent can successfully call a tool within a rolling time window.
+
+```typescript
+interface RateLimitConfig {
+  maxCalls: number;       // maximum allowed successful calls
+  windowSeconds: number;  // length of the rolling window, in seconds
+}
+```
+
+Use the `tools` field to scope the limit to specific tools. Omit `tools` to apply the limit across all tool calls.
+
+**Example: cap web searches to 100 per hour**
+
+```json
+{
+  "type": "rate_limit",
+  "tools": ["web.search"],
+  "rateLimit": { "maxCalls": 100, "windowSeconds": 3600 }
+}
+```
+
+**Example: global call limit across all tools**
+
+```json
+{
+  "type": "rate_limit",
+  "rateLimit": { "maxCalls": 500, "windowSeconds": 60 }
+}
+```
+
+<Info>
+  Only calls that resulted in `allowed` count against the rate limit budget. Denied requests do not consume quota.
+</Info>
+
+---
+
+## 5. time_based
+
+A time-based rule restricts tool calls to certain hours of the day or days of the week.
+
+```typescript
+interface TimeWindowConfig {
+  allowedHours?: number[];  // hours (0–23) when calls are permitted
+  allowedDays?: number[];   // days of week: 0 = Sunday, 6 = Saturday
+  timezone?: string;        // IANA timezone string, e.g. "America/Chicago"
+}
+```
+
+If `timezone` is omitted, times are evaluated in UTC.
+
+**Example: business hours only, Monday–Friday, US Central**
+
+```json
+{
+  "type": "time_based",
+  "timeWindow": {
+    "allowedHours": [9, 10, 11, 12, 13, 14, 15, 16, 17],
+    "allowedDays": [1, 2, 3, 4, 5],
+    "timezone": "America/Chicago"
+  }
+}
+```
+
+**Example: restrict to weekends only**
+
+```json
+{
+  "type": "time_based",
+  "timeWindow": {
+    "allowedDays": [0, 6]
+  }
+}
+```
+
+---
+
+<Tip>
+  Keep denylist rules and allowlist rules in separate policies rather than mixing them in the same policy. A policy containing only denylist rules will never produce an `allowed` result — it can only deny or pass through. Use priority to layer a high-priority deny policy on top of a lower-priority allow policy. This keeps your intent explicit and your evaluation logic predictable.
+</Tip>
