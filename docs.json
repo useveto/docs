@@ -96,13 +96,44 @@
             ]
           },
           {
-            "group": "Endpoints",
+            "group": "Authorization",
             "pages": [
-              "api-reference/authorize",
-              "api-reference/agents",
-              "api-reference/policies",
-              "api-reference/audit-logs",
-              "api-reference/api-keys"
+              "POST /v1/authorize"
+            ]
+          },
+          {
+            "group": "Agents",
+            "pages": [
+              "POST /v1/agents",
+              "GET /v1/agents",
+              "GET /v1/agents/{id}",
+              "PATCH /v1/agents/{id}",
+              "DELETE /v1/agents/{id}"
+            ]
+          },
+          {
+            "group": "Policies",
+            "pages": [
+              "POST /v1/policies",
+              "GET /v1/policies",
+              "GET /v1/policies/{id}",
+              "PATCH /v1/policies/{id}",
+              "DELETE /v1/policies/{id}"
+            ]
+          },
+          {
+            "group": "Audit Logs",
+            "pages": [
+              "GET /v1/audit-logs",
+              "GET /v1/audit-logs/export"
+            ]
+          },
+          {
+            "group": "API Keys",
+            "pages": [
+              "POST /v1/api-keys",
+              "GET /v1/api-keys",
+              "DELETE /v1/api-keys/{id}"
             ]
           }
         ]
