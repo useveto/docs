@@ -1,5 +1,6 @@
 ---
 title: 'Audit logs'
+icon: 'scroll'
 description: 'Query and export the audit log of all authorization decisions.'
 ---
 
@@ -32,7 +33,7 @@ Every call to `/v1/authorize` produces an audit log entry, regardless of the out
 </ResponseField>
 
 <ResponseField name="result" type="string">
-  The authorization outcome. One of `"allowed"`, `"denied"`, or `"escalated"`.
+  The authorization outcome. One of `"allowed"` or `"denied"`.
 </ResponseField>
 
 <ResponseField name="policyId" type="string | null">
@@ -72,7 +73,7 @@ Query audit logs with optional filters. Results are returned in reverse chronolo
 </ParamField>
 
 <ParamField query="result" type="string">
-  Filter by outcome. One of `"allowed"`, `"denied"`, or `"escalated"`.
+  Filter by outcome. One of `"allowed"` or `"denied"`.
 </ParamField>
 
 <ParamField query="from" type="string">
@@ -125,7 +126,7 @@ const { data, pagination } = await veto.queryAuditLog({
       "policyId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
       "reason": "Parameter \"path\" value \"/etc/passwd\" does not match pattern /^\\/home\\//",
       "latencyMs": 12,
-      "timestamp": "2024-01-15T10:30:00.000Z"
+      "timestamp": "2026-01-15T10:30:00.000Z"
     }
   ],
   "pagination": {
@@ -160,7 +161,7 @@ Export audit logs as a CSV file. Accepts the same filter parameters as `GET /v1/
 </ParamField>
 
 <ParamField query="result" type="string">
-  Filter by outcome. One of `"allowed"`, `"denied"`, or `"escalated"`.
+  Filter by outcome. One of `"allowed"` or `"denied"`.
 </ParamField>
 
 <ParamField query="from" type="string">

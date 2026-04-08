@@ -1,5 +1,6 @@
 ---
 title: "Dashboard"
+icon: "gauge"
 description: "Manage agents, policies, and audit logs from the Veto dashboard at app.veto.tools."
 keywords: ["dashboard", "agents", "policies", "audit log", "api keys", "settings"]
 ---
@@ -60,7 +61,7 @@ The **Audit Log** is a complete, searchable record of every authorization decisi
 
 Filter by:
 - Agent
-- Result (`allowed`, `denied`, or `escalated`)
+- Result (`allowed` or `denied`)
 - Tool name
 - Time range
 
@@ -71,7 +72,7 @@ Each log entry shows:
 | Timestamp | When the decision was made |
 | Agent | Which agent made the request |
 | Tool | The tool that was evaluated |
-| Result | `allowed`, `denied`, or `escalated` |
+| Result | `allowed` or `denied` |
 | Reason | Why the decision was made |
 | Latency | How long evaluation took |
 | Matched policy | Which policy triggered the result |

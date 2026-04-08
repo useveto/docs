@@ -1,5 +1,6 @@
 ---
 title: "Quick Start"
+icon: "rocket"
 description: "Make your first authorization check in under 5 minutes."
 keywords: ["quickstart", "getting started", "authorization", "sdk", "api key", "agent", "policy"]
 ---
@@ -173,7 +174,7 @@ keywords: ["quickstart", "getting started", "authorization", "sdk", "api key", "
     | Field | Type | Description |
     |---|---|---|
     | `allowed` | `boolean` | Whether the action is permitted |
-    | `outcome` | `"allowed" \| "denied" \| "escalated"` | The decision |
+    | `outcome` | `"allowed" \| "denied"` | The decision |
     | `matchedPolicyId` | `string \| null` | The policy that produced this decision, or `null` for default deny |
     | `reason` | `string` | Human-readable explanation |
     | `evaluatedAt` | `string` | ISO 8601 timestamp of the evaluation |

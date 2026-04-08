@@ -1,5 +1,6 @@
 ---
 title: 'Agents'
+icon: 'robot'
 description: 'Create, list, get, update, and delete agents via the REST API.'
 ---
 
@@ -78,8 +79,8 @@ const agent = await veto.createAgent({
   "name": "Email assistant",
   "description": "Handles inbox triage and draft responses",
   "status": "active",
-  "createdAt": "2024-01-15T10:00:00.000Z",
-  "updatedAt": "2024-01-15T10:00:00.000Z"
+  "createdAt": "2026-01-15T10:00:00.000Z",
+  "updatedAt": "2026-01-15T10:00:00.000Z"
 }
 ```
 
@@ -124,8 +125,8 @@ const agents = await veto.listAgents();
       "name": "Email assistant",
       "description": "Handles inbox triage and draft responses",
       "status": "active",
-      "createdAt": "2024-01-15T10:00:00.000Z",
-      "updatedAt": "2024-01-15T10:00:00.000Z"
+      "createdAt": "2026-01-15T10:00:00.000Z",
+      "updatedAt": "2026-01-15T10:00:00.000Z"
     }
   ],
   "pagination": {
@@ -168,8 +169,8 @@ const agent = await veto.getAgent('550e8400-e29b-41d4-a716-446655440000');
   "name": "Email assistant",
   "description": "Handles inbox triage and draft responses",
   "status": "active",
-  "createdAt": "2024-01-15T10:00:00.000Z",
-  "updatedAt": "2024-01-15T10:00:00.000Z"
+  "createdAt": "2026-01-15T10:00:00.000Z",
+  "updatedAt": "2026-01-15T10:00:00.000Z"
 }
 ```
 
@@ -219,8 +220,8 @@ curl -X PATCH https://api.veto.tools/v1/agents/550e8400-e29b-41d4-a716-446655440
   "name": "Email assistant",
   "description": "Handles inbox triage and draft responses",
   "status": "suspended",
-  "createdAt": "2024-01-15T10:00:00.000Z",
-  "updatedAt": "2024-01-15T11:00:00.000Z"
+  "createdAt": "2026-01-15T10:00:00.000Z",
+  "updatedAt": "2026-01-15T11:00:00.000Z"
 }
 ```
 

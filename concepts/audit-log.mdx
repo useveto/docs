@@ -1,5 +1,6 @@
 ---
 title: "Audit Log"
+icon: "scroll"
 description: "Every authorization decision Veto makes is logged and queryable."
 keywords: ["audit log", "logs", "authorization history", "compliance", "export"]
 ---
@@ -15,7 +16,7 @@ interface AuditLogEntry {
   action: string;
   toolName: string;
   parameters: Record<string, unknown>;
-  result: "allowed" | "denied" | "escalated";
+  result: "allowed" | "denied";
   policyId: string | null;
   reason: string;
   latencyMs: number;
@@ -30,7 +31,7 @@ Each entry captures:
 | `agentId` | The agent that made the request |
 | `toolName` | The tool the agent attempted to call |
 | `parameters` | The parameters passed with the call (sensitive values redacted) |
-| `result` | The authorization outcome: `allowed`, `denied`, or `escalated` |
+| `result` | The authorization outcome: `allowed` or `denied` |
 | `policyId` | The policy that produced the decision, or `null` if default deny |
 | `reason` | A human-readable explanation of the decision |
 | `latencyMs` | Time taken to evaluate the request, in milliseconds |
@@ -94,7 +95,7 @@ Available filters:
 |--------|------|-------------|
 | `agentId` | string | Only entries for this agent |
 | `toolName` | string | Only entries for this tool name (exact match) |
-| `result` | `"allowed"` \| `"denied"` \| `"escalated"` | Filter by outcome |
+| `result` | `"allowed"` \| `"denied"` | Filter by outcome |
 | `from` | ISO date string | Entries at or after this timestamp |
 | `to` | ISO date string | Entries at or before this timestamp |
 | `limit` | number | Number of entries to return |

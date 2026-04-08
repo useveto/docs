@@ -1,5 +1,6 @@
 ---
 title: "Node.js SDK"
+icon: "js"
 description: "Use @useveto/node to integrate Veto into Node.js and edge runtime applications."
 ---
 
@@ -34,7 +35,7 @@ The `AuthorizationResult` shape:
 | Field            | Type                                    | Description                                          |
 | ---------------- | --------------------------------------- | ---------------------------------------------------- |
 | `allowed`        | `boolean`                               | Whether the action is permitted.                     |
-| `outcome`        | `"allowed" \| "denied" \| "escalated"` | The full authorization outcome.                      |
+| `outcome`        | `"allowed" \| "denied"` | The full authorization outcome.                      |
 | `matchedPolicyId`| `string \| null`                        | ID of the policy that produced this decision, or `null` for default deny. |
 | `reason`         | `string`                                | Human-readable explanation.                          |
 | `evaluatedAt`    | `string`                                | ISO timestamp of when the decision was made.         |
@@ -66,7 +67,7 @@ const agent = await veto.createAgent({
   name: "support-bot",
   description: "Customer support automation agent",
 });
-// returns Agent: { id, name, description, ownerId, status, createdAt, updatedAt }
+// returns Agent: { id, name, description, status, createdAt, updatedAt }
 ```
 
 ```typescript listAgents
@@ -190,7 +191,7 @@ veto.queryAuditLog(filters?: AuditLogFilters): Promise<PaginatedAuditLogResponse
 | `agentId`  | `string`                                | Filter by agent.                        |
 | `action`   | `string`                                | Filter by action string.                |
 | `toolName` | `string`                                | Filter by tool name.                    |
-| `result`   | `"allowed" \| "denied" \| "escalated"` | Filter by outcome.                      |
+| `result`   | `"allowed" \| "denied"` | Filter by outcome.                      |
 | `from`     | `string`                                | ISO timestamp — entries on or after.    |
 | `to`       | `string`                                | ISO timestamp — entries on or before.   |
 | `limit`    | `number`                                | Max entries to return.                  |
@@ -200,7 +201,7 @@ veto.queryAuditLog(filters?: AuditLogFilters): Promise<PaginatedAuditLogResponse
 const log = await veto.queryAuditLog({
   agentId: "agent-uuid",
   result: "denied",
-  from: "2025-01-01T00:00:00Z",
+  from: "2026-01-01T00:00:00Z",
   limit: 50,
   offset: 0,
 });

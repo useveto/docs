@@ -1,5 +1,6 @@
 ---
 title: "Agents"
+icon: "robot"
 description: "Understanding agents in Veto — what they are, how they're managed, and their lifecycle."
 keywords: ["agents", "authorization", "AI agent", "status", "lifecycle"]
 ---
@@ -15,7 +16,6 @@ interface Agent {
   id: string;
   name: string;
   description: string | null;
-  ownerId: string;
   status: "active" | "suspended" | "revoked";
   createdAt: string;
   updatedAt: string;

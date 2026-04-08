@@ -2,14 +2,40 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "luma",
   "name": "Veto",
-  "favicon": "https://media.brand.dev/3b9c0f4a-1ea6-44c7-969a-e270cd558018.svg",
+  "logo": {
+    "light": "/images/logo-light.svg",
+    "dark": "/images/logo-dark.svg"
+  },
+  "favicon": "/favicon.svg",
   "colors": {
     "primary": "#14bc84"
   },
+  "feedback": {
+    "thumbsRating": true
+  },
   "navbar": {
+    "links": [
+      {
+        "label": "Dashboard",
+        "href": "https://app.veto.tools"
+      }
+    ],
     "primary": {
       "type": "github",
       "href": "https://github.com/useveto/veto"
+    }
+  },
+  "anchors": [
+    {
+      "anchor": "Status",
+      "icon": "signal",
+      "href": "https://status.veto.tools"
+    }
+  ],
+  "footer": {
+    "socials": {
+      "github": "https://github.com/useveto",
+      "website": "https://veto.tools"
     }
   },
   "navigation": {

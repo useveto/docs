@@ -1,5 +1,7 @@
 ---
 title: "Python SDK"
+icon: "python"
+tag: "NEW"
 description: "Use the useveto Python package to integrate Veto into Python applications."
 ---
 
@@ -72,7 +74,7 @@ The `AuthorizationResult` has these fields:
 | Field              | Type  | Description                                          |
 | ------------------ | ----- | ---------------------------------------------------- |
 | `allowed`          | `bool`| Whether the action is permitted.                     |
-| `outcome`          | `str` | `"allowed"`, `"denied"`, or `"escalated"`.           |
+| `outcome`          | `str` | `"allowed"` or `"denied"`.           |
 | `matched_policy_id`| `str \| None` | ID of the matching policy, or `None` for default deny. |
 | `reason`           | `str` | Human-readable explanation.                          |
 | `evaluated_at`     | `str` | ISO timestamp of the decision.                       |
@@ -94,7 +96,7 @@ agent = client.create_agent(CreateAgentInput(
     name="support-bot",
     description="Customer support automation agent",
 ))
-# returns Agent: id, name, description, owner_id, status, created_at, updated_at
+# returns Agent: id, name, description, status, created_at, updated_at
 ```
 
 ```python list_agents
@@ -167,7 +169,7 @@ client.delete_policy("policy-uuid")
 response = client.query_audit_log(
     agent_id="agent-uuid",             # optional
     tool_name="file.write",            # optional
-    result="denied",                   # optional: "allowed" | "denied" | "escalated"
+    result="denied",                   # optional: "allowed" | "denied"
     from_time="2026-01-01T00:00:00Z",  # optional ISO datetime
     to_time="2026-04-01T00:00:00Z",    # optional ISO datetime
     limit=100,                         # optional

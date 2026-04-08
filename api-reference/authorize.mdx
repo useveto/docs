@@ -1,5 +1,6 @@
 ---
 title: 'Authorize'
+icon: 'shield'
 description: 'Check if an agent is authorized to call a specific tool with given parameters.'
 ---
 
@@ -57,7 +58,7 @@ Returns an `AuthorizationResult` object.
 </ResponseField>
 
 <ResponseField name="outcome" type="string" required>
-  The authorization decision. One of `"allowed"`, `"denied"`, or `"escalated"`.
+  The authorization decision. One of `"allowed"` or `"denied"`.
 </ResponseField>
 
 <ResponseField name="matchedPolicyId" type="string | null" required>
@@ -80,7 +81,7 @@ Returns an `AuthorizationResult` object.
   "outcome": "allowed",
   "matchedPolicyId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "reason": "Allowed by policy \"Safe file operations\"",
-  "evaluatedAt": "2024-01-15T10:30:00.000Z"
+  "evaluatedAt": "2026-01-15T10:30:00.000Z"
 }
 ```
 
@@ -90,7 +91,7 @@ Returns an `AuthorizationResult` object.
   "outcome": "denied",
   "matchedPolicyId": null,
   "reason": "No policy explicitly allows this action (default deny)",
-  "evaluatedAt": "2024-01-15T10:30:00.000Z"
+  "evaluatedAt": "2026-01-15T10:30:00.000Z"
 }
 ```
 
@@ -100,7 +101,7 @@ Returns an `AuthorizationResult` object.
   "outcome": "denied",
   "matchedPolicyId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "reason": "Parameter \"path\" value \"/etc/passwd\" does not match pattern /^\\/home\\//",
-  "evaluatedAt": "2024-01-15T10:30:00.000Z"
+  "evaluatedAt": "2026-01-15T10:30:00.000Z"
 }
 ```
 
